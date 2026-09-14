@@ -1,0 +1,65 @@
+{
+  "full_dir": "C:/arm_study/results/repair_equalcpu_noretract",
+  "equal_dir": "C:/arm_study/results/repair_equalcpu_noretract_g49",
+  "retract": null,
+  "baseline_generations": 174,
+  "repair_generations": 49,
+  "baseline_cpu_mean": 23.654898666666668,
+  "repair_cpu_mean": 22.58395733333333,
+  "cpu_ratio": 0.9547264459499691,
+  "equal_compute": [
+    {
+      "metric": "cycle_time",
+      "n_pairs": 150,
+      "mean_gain": 0.17374558615180735,
+      "median_gain": 0.1388316099944138,
+      "ci_low": 0.13596558836137465,
+      "ci_high": 0.21365941557330909,
+      "repair_wins": 114,
+      "baseline_wins": 36,
+      "permutation_p": 4.9999750001249995e-06,
+      "wilcoxon_p": 1.7830751896205972e-14
+    },
+    {
+      "metric": "mean_feasible",
+      "n_pairs": 150,
+      "mean_gain": 0.17372459999999998,
+      "median_gain": 0.17355849999999995,
+      "ci_low": 0.1662255995,
+      "ci_high": 0.181255572,
+      "repair_wins": 150,
+      "baseline_wins": 0,
+      "permutation_p": 4.9999750001249995e-06,
+      "wilcoxon_p": 2.2996057560670142e-26
+    },
+    {
+      "metric": "cpu_time",
+      "n_pairs": 150,
+      "mean_gain": 1.0709413333333335,
+      "median_gain": 0.7734500000000004,
+      "ci_low": 0.49810903333333323,
+      "ci_high": 1.6559382666666667,
+      "repair_wins": 91,
+      "baseline_wins": 59,
+      "permutation_p": 0.00041499792501037495,
+      "wilcoxon_p": 0.0016210324568466817
+    }
+  ],
+  "equal_evaluations_reference": {
+    "metric": "cycle_time",
+    "n_pairs": 150,
+    "mean_gain": 0.27592577366196464,
+    "median_gain": 0.2435018974964942,
+    "ci_low": 0.23813213564563998,
+    "ci_high": 0.3167778386136148,
+    "repair_wins": 137,
+    "baseline_wins": 13,
+    "permutation_p": 4.9999750001249995e-06,
+    "wilcoxon_p": 2.6433483427078674e-24
+  },
+  "feasible": {
+    "both": 150,
+    "baseline_only": 0,
+    "repair_only": 0
+  }
+}
