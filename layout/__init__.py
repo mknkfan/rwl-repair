@@ -1,4 +1,4 @@
-"""The cell: what a layout is and which layouts the study asks about.
+"""The cell: what a layout is, and which layouts are asked about.
 
 ``geometry`` -- machines as rotated rectangles, overlap, bounds, keep-out.
 ``problems`` -- the instance family and its three disjoint splits."""

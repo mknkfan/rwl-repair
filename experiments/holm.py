@@ -3,32 +3,26 @@
     python -m arm_study.experiments.holm
     python -m arm_study.experiments.holm --reference repair --budget equal_cpu
 
-Why this is a separate script
------------------------------
-``run_penalty_ab`` reports one p-value per comparison, which is the right thing
-for a single claim and the wrong thing for a table of them: with five arms the
-headline "repair beats everything" is four simultaneous tests, and four chances
-to be unlucky.  Holm-Bonferroni is the correction to reach for here -- it
-controls the family-wise error rate under *any* dependence between the tests,
-which matters because these tests are strongly dependent (they share the repair
-arm and the same 50 matched sets).  Benjamini-Hochberg would be more powerful
-and is not needed: the p-values are not close to the line.
+``run_penalty_ab`` reports one p-value per comparison, which is right for a
+single claim and wrong for a table of them: the headline "repair beats
+everything" is three simultaneous tests and three chances to be unlucky.
+Holm-Bonferroni controls the family-wise error rate under *any* dependence,
+which matters because these tests share the repair arm and the same 50 matched
+sets.  Benjamini-Hochberg would be more powerful and is not needed -- the
+p-values are nowhere near the line.
 
-The resolution problem
-----------------------
-``sign_flip_test`` samples 200 000 permutations above n=20, so the smallest
-p-value it can return is ``1/200001``, about 5e-6.  A comparison that is
-overwhelmingly significant and one that is merely very significant both come
-back as "0.0000", and Holm cannot tell them apart -- nor can a reader tell
-whether the floor was hit.  So this re-runs the permutation test with a much
-larger sample, reports the floor explicitly, and carries the analytic Wilcoxon
-p-value alongside, which has no floor at all and is therefore the statistic the
-correction is applied to.
+**The resolution problem.** ``sign_flip_test`` samples 200 000 permutations
+above n=20, so its smallest possible p-value is ``1/200001``, about 5e-6.  An
+overwhelmingly significant comparison and a merely very significant one both
+come back "0.0000" and Holm cannot tell them apart.  So this re-runs the
+permutation test with a much larger sample, reports the floor explicitly, and
+carries the analytic Wilcoxon p-value alongside -- which has no floor, and is
+therefore the statistic the correction is applied to.
 
-A third, fully exact test is reported for the same comparisons: the two-sided
-binomial sign test on the win counts.  It throws away the magnitudes and is
-correspondingly conservative, but it has a closed form, no approximation and no
-sampling, so it is the one number in the table that cannot be argued with.
+The two-sided binomial sign test on the win counts is reported as well.  It
+throws away the magnitudes and is correspondingly conservative, but it is
+closed-form with no approximation and no sampling, so it is the one number in
+the table that cannot be argued with.
 """
 
 from __future__ import annotations

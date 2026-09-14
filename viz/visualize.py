@@ -1,23 +1,18 @@
-"""
-Figures for a solved layout: the cell, the arm's path through it, and the
-motion profiles that produced the cycle time.
+"""Figures for a solved layout: the cell, the arm's path through it, and the
+motion profiles behind the cycle time.
 
-Three figures, because they answer three different questions:
+``layout.png``      where the machines ended up, against the reachable annulus
+``trajectory.png``  the tool path in 3-D, the joint angles, and the
+                    trapezoidal rate profiles with the limits drawn on, so
+                    which joint paces each move is visible
+``convergence.png`` whether the GA converged, and how fast the population
+                    became feasible
 
-``layout.png``      where did the machines end up, and is that sensible given
-                    the reachable annulus?
-``trajectory.png``  what does the arm actually do -- the tool path in 3-D, the
-                    joint angles, and the trapezoidal rate profiles with the
-                    limits drawn on so it is visible which joint paces each
-                    move.
-``convergence.png`` did the GA converge, and how fast did the population
-                    become feasible?
+Optionally ``cycle.gif``, the same trajectory animated -- off by default
+because it costs more than the three static figures together.
 
-Optionally ``cycle.gif``, which is the same trajectory animated.  It is off by
-default because writing it costs more than the three static figures together.
-
-Everything here is matplotlib only and reads a
-:class:`~arm_study.evaluator.LayoutOutcome`; nothing re-solves anything.
+Matplotlib only, reading a :class:`~evaluator.LayoutOutcome`; nothing here
+re-solves anything.
 """
 
 from __future__ import annotations
@@ -229,14 +224,12 @@ def _draw_scene_3d(
     """The machines and the solid robot, as **one** depth-sorted collection.
 
     Matplotlib sorts polygons within a ``Poly3DCollection`` but not between
-    collections, so a robot in its own collection would either always sit in
-    front of the boxes or always behind them, whichever was added last.  One
-    collection for the whole scene is what makes the arm disappear behind a
-    machine it is genuinely behind and stand in front of one it is not.
+    collections, so a robot in its own would sit always in front of the boxes
+    or always behind, whichever was added last.
 
-    ``poses`` is a sequence of ``(4,)`` configurations, drawn oldest first;
-    ``pose_alphas`` fades the earlier ones so a sequence reads as a sweep
-    through time rather than a pile of robots.
+    ``poses`` is a sequence of ``(4,)`` configurations, oldest first;
+    ``pose_alphas`` fades the earlier ones so it reads as a sweep through time
+    rather than a pile of robots.
     """
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
@@ -276,12 +269,9 @@ def _draw_scene_3d(
         zsort="average",
         zorder=1,
     )
-    # With one collection holding the whole scene there is nothing left for
-    # matplotlib's automatic artist ordering to decide, and leaving it on is
-    # actively wrong: it ranks a collection by its *nearest* polygon, so the
-    # scene -- which now reaches right up to the camera -- would be drawn last
-    # and bury the tool path and the port markers.  Explicit zorder instead,
-    # solids at the bottom.
+    # Automatic artist ordering ranks a collection by its *nearest* polygon,
+    # so this one -- now reaching up to the camera -- would be drawn last and
+    # bury the tool path and port markers.  Explicit zorder instead.
     ax.computed_zorder = False
     ax.add_collection3d(collection)
 
@@ -326,19 +316,15 @@ def figure_trajectory(
     ax3d.plot(tool[:, 0], tool[:, 1], tool[:, 2], color="#d62728", linewidth=1.7,
               label="tool path", zorder=6)
 
-    # The arm is drawn solid **at the stations**, faintest first, because those
-    # are the poses the feasibility criteria actually govern: reach, joint
-    # travel, sigma_min and the clearance from every machine are all asserted
-    # there and nowhere else.  Drawing evenly spaced instants instead showed
-    # mid-move poses, which the criteria say nothing about -- see the
-    # swept-path note in the README.  The continuous motion is carried by the
-    # tool path and the wrist track below.
+    # Drawn at the stations, faintest first: those are the poses the
+    # feasibility criteria govern.  Evenly spaced instants would show mid-move
+    # poses the criteria say nothing about.  The motion between them is
+    # carried by the tool path and the wrist track below.
     stations = outcome.stations
     if len(stations) > poses:
         stations = stations[np.linspace(0, len(stations) - 1, poses).astype(int)]
-    # A steep ramp: the stations sit close together in a converged layout, so a
-    # flat one stacks six near-identical translucent robots into a smear.  This
-    # way the eye follows the service order to the solid final pose.
+    # A steep ramp: stations sit close together in a converged layout, so a
+    # flat one smears six near-identical robots together.
     alphas = np.linspace(0.10, 1.0, len(stations)) ** 2.4
     _draw_scene_3d(
         ax3d,

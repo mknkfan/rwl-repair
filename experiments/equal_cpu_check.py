@@ -1,34 +1,29 @@
-"""
-The equal-compute control for the placement-repair A/B.
+"""The equal-compute control for the placement-repair A/B.
 
     python -m arm_study.experiments.equal_cpu_check
 
-``run_repair_ab`` gives both arms the same number of evaluations, and on that
-budget the repair wins.  The budget is the problem: an infeasible layout is
-thrown out by the placement test for about 0.36 ms, while a feasible one runs
-inverse kinematics, the manipulability check and the swept-path collision test
-over four branches for about 6.1 ms.  Repair works by turning the cheap
-evaluations into expensive ones, so at equal evaluation count it quietly draws
-about 1.7x the compute.  A win bought that way is a weaker claim than it looks.
+``run_repair_ab`` gives both arms the same number of evaluations, and repair
+wins on that budget.  The budget is the problem: the placement test throws out
+an infeasible layout in about 0.36 ms, while a feasible one runs IK, the
+manipulability check and the swept-path collision test over four branches for
+about 6.1 ms.  Repair works by turning cheap evaluations into expensive ones,
+so at equal evaluation count it quietly draws about 1.7x the compute.
 
-So this re-runs the comparison with the handicap moved to the other side.  The
-repair arm is truncated to the generation count whose CPU matches what the
-baseline spent over its full 300 -- 174 generations, from the measured ratio --
-and is then compared against the *full-length* baseline.  Truncation is the
-conservative direction twice over: a GA's later generations are the expensive
-ones, because the population is by then mostly feasible, so the first 174 of
-300 cost rather less than 58 % of the total.  The repair arm is therefore
-given, if anything, slightly less compute than the baseline rather than more,
-and the realised CPU is reported so the reader can check that rather than take
-it on trust.
+This moves the handicap to the other side: the repair arm is truncated to the
+generation count whose CPU matches what the baseline spent over its full 300
+(174, from the measured ratio) and compared against the *full-length*
+baseline.  Truncation is conservative twice over -- a GA's later generations
+are the expensive ones, since the population is by then mostly feasible, so
+the first 174 of 300 cost rather less than 58 % of the total.  The realised
+CPU is reported so that can be checked rather than taken on trust.
 
-Both studies must already be on disk::
+Both trees must already be on disk::
 
     results/repair/raw            baseline and repair at 300 generations
     results/repair_equalcpu/raw   both arms at 174 generations
 
-Pairing is by (instance, seed) exactly as before, and the seeds match across
-the two studies because both use the same ``run_seed_for`` rule.
+Pairing is by (instance, seed), and the seeds match across the two trees
+because both use the same ``run_seed_for`` rule.
 """
 
 from __future__ import annotations

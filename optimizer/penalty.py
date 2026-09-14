@@ -1,76 +1,41 @@
-"""Graded penalties on the geometric constraints, as an alternative to the
-``+inf`` wall.
+"""Graded penalties on the geometric constraints, as an alternative to ``+inf``.
 
-The wall
---------
-:class:`~evaluator.CycleTimeEvaluator` scores every infeasible layout ``+inf``.
-That is a *death penalty*: the individual survives in the population but
-carries no information about how badly it missed, so selection sees one flat
-plateau covering most of the search space and can only rank the layouts that
-already work.  The repair operator attacks the same problem from the other
-side, by moving the individual until it is legal.
+:class:`~evaluator.CycleTimeEvaluator` scores every infeasible layout ``+inf``,
+so selection sees one flat plateau and can only rank the layouts that already
+work.  A penalty puts a slope on that plateau: each geometric constraint is
+written ``g_i(x) <= 0`` and the *constraint violation degree*
+``CVD(x) = sum_i max(0, g_i(x))`` ranks an infeasible layout by how close to
+legal it is.
 
-What a penalty does instead is put a slope on the plateau.  Each geometric
-constraint is written as ``g_i(x) <= 0`` and the *constraint violation degree*
-
-    CVD(x) = sum_i max(0, g_i(x))
-
-is added to the score, so an infeasible layout is now ranked by how close to
-legal it is and selection can walk downhill towards the feasible set without
-ever having landed in it.
-
-The formulation
----------------
-The objective is cycle time and it stays the objective; the penalty is never
-allowed to trade seconds against metres.  So the score is *layered*::
+The score is *layered*, so the penalty never trades seconds against metres::
 
     F(x) = T(x)                                  x fully feasible
          = T_inf + w * CVD(x) + m * N(x)         otherwise
 
-with ``T_inf`` a constant above any attainable cycle time.  Every feasible
-layout therefore beats every infeasible one, whatever the weights, and among
-the infeasible ones the ranking is by violation.  Three consequences worth
-being explicit about:
+``T_inf`` is above any attainable cycle time, so every feasible layout beats
+every infeasible one and cycle time stays the objective.  Three consequences:
 
-1. **The layers make the weight scale immaterial for the CVD-only variant.**
-   The GA's selection is tournament, its elitism is ``argsort``, and its
-   best-so-far is a ``min`` -- all rank-based.  Multiplying ``CVD`` by any
-   positive ``w`` leaves every one of those unchanged, so ``w`` cannot affect
-   the search.  This is what disposes of the standard objection to penalties
-   (that the metres-to-seconds exchange rate is an unstated preference): here
-   there is no exchange rate, because the layers never let the two trade.
-2. **The ratio m/w is not immaterial** in the second variant, because it
-   decides whether several shallow overlaps rank above or below one deep one.
-   That is a real modelling choice and it is swept rather than asserted.
-3. **A placeable-but-unreachable layout scores exactly** ``T_inf``.  Its CVD is
-   zero -- the geometry is legal -- and the robot constraints are not penalised
-   here.  They could be, but grading them costs the full inverse-kinematics
-   pass on every individual, which is far more than a placement test on this
-   problem and would make the arm incomparable on compute.  So this grades
-   what repair repairs, and nothing else.
+1. ``w`` cannot affect the search in the CVD-only variant.  Selection,
+   elitism and best-so-far are all rank-based, and scaling ``CVD`` by a
+   positive constant leaves every ranking unchanged.  That disposes of the
+   usual objection to penalties -- the metres-to-seconds exchange rate is an
+   unstated preference -- because the layers never let the two trade.
+2. ``m/w`` *is* material: it decides whether several shallow overlaps rank
+   above or below one deep one.  A real modelling choice, so it is swept.
+3. A placeable-but-unreachable layout scores exactly ``T_inf``.  Grading the
+   robot constraints would cost a full IK pass per individual, so this grades
+   what repair repairs and nothing else.
 
-The constraints
----------------
-All in metres, all read straight off the functions the feasibility test
-already uses, so the penalty cannot drift away from the thing it is a
-relaxation of.  For ``n`` machines::
+The constraints are read straight off the functions the feasibility test uses,
+so the penalty cannot drift from the thing it relaxes.  For ``n`` machines:
+``4n`` bounds excursions, ``n`` keep-out shortfalls, ``n(n-1)/2`` overlap
+depths -- 45 for the six-machine instances.  ``CVD`` is zero exactly when
+``layout_is_placeable`` is true.
 
-    4n        bounds     how far the footprint juts past each of the four walls
-    n         keep-out   keep_out_shortfall: how far into the robot's column
-    n(n-1)/2  overlap    overlap_depth: the minimum translation separating a
-                         pair, clearance included
-
-45 constraints for the six-machine instances.  ``CVD`` is their positive parts
-summed, so it is zero exactly when ``layout_is_placeable`` is true.
-
-Counting
---------
-Both evaluators count a call to :meth:`fitness` as one evaluation, as the base
-class does, and additionally count how many of those calls landed on a
-genuinely feasible layout.  The share is the one feasibility measure that
-means the same thing in all four arms: the ``feasible_fraction`` trace in
-``ga.py`` is ``isfinite(fitness)``, which is identically 1.0 once a penalty
-makes every score finite.
+Both evaluators also count how many calls landed on a genuinely feasible
+layout.  That share is the one feasibility measure meaning the same thing in
+every arm, since ``ga.py``'s ``feasible_fraction`` is ``isfinite(fitness)``,
+which a penalty makes identically 1.0.
 """
 
 from __future__ import annotations
@@ -104,10 +69,9 @@ def constraint_violations(
 ) -> Tuple[float, int, int]:
     """``(CVD, machines_overlapping, overlapping_pairs)`` for one layout.
 
-    ``CVD`` is ``sum_i max(0, g_i)`` over every geometric constraint, in
-    metres.  It is zero exactly when :func:`~geometry.layout_is_placeable`
-    returns ``True``, which is what makes it a relaxation of that test rather
-    than a different test that happens to correlate with it.
+    ``CVD`` is ``sum_i max(0, g_i)`` in metres, zero exactly when
+    :func:`~geometry.layout_is_placeable` is true -- which is what makes it a
+    relaxation of that test rather than a different test that correlates.
     """
     min_x, max_x, min_y, max_y = bounds
     total = 0.0
@@ -126,17 +90,13 @@ def constraint_violations(
     pairs = 0
     for i in range(len(machines)):
         for j in range(i + 1, len(machines)):
-            # The guard is what keeps ``CVD == 0`` and ``layout_is_placeable``
-            # the same predicate, and it is not redundant: with a non-zero
-            # clearance the two disagree on roughly one layout in 3000.
-            # ``rectangles_overlap`` short-circuits on a bound on the true
-            # distance between the footprints, while ``overlap_depth`` maximises
-            # the projection gap over the four edge normals -- and for two boxes
-            # nearest corner-to-corner that maximum understates the distance, so
-            # ``overlap_depth`` reports a few millimetres of violation on a pair
-            # the study's own test calls clear.  Deferring to the test means the
-            # penalty is a relaxation of the constraint the other arms enforce,
-            # rather than of a slightly stricter one of its own.
+            # Not redundant: with a non-zero clearance the two disagree on
+            # about one layout in 3000.  ``overlap_depth`` maximises the
+            # projection gap over the four edge normals, which understates the
+            # distance for boxes nearest corner-to-corner, so it reports a few
+            # millimetres of violation on a pair the feasibility test calls
+            # clear.  Deferring to that test keeps ``CVD == 0`` and
+            # ``layout_is_placeable`` the same predicate.
             if not rectangles_overlap(machines[i], machines[j], clearance):
                 continue
             depth, _ = overlap_depth(machines[i], machines[j], clearance)
@@ -151,10 +111,9 @@ def constraint_violations(
 class PenaltyEvaluator(CycleTimeEvaluator):
     """Cycle time with the geometric plateau replaced by a slope.
 
-    ``violation_weight`` scales ``CVD`` and ``overlap_count_weight`` scales the
-    number of machines caught in an overlap.  Setting the second to zero gives
-    the pure CVD variant; the two are one class because they differ in a
-    coefficient, and making them two would invite them to drift apart.
+    ``violation_weight`` scales ``CVD``; ``overlap_count_weight`` scales the
+    number of machines caught in an overlap.  Zero for the second gives the
+    pure CVD variant -- one class, because they differ only in a coefficient.
     """
 
     def __init__(
@@ -186,9 +145,9 @@ class PenaltyEvaluator(CycleTimeEvaluator):
             instance.keep_out_radius, instance.clearance,
         )
         if cvd > 0.0:
-            # Geometrically illegal: graded, and never evaluated on the robot.
-            # This is the branch that keeps the arm's cost profile comparable
-            # with the death-penalty arm -- both stop before the kinematics.
+            # Geometrically illegal: graded, and never evaluated on the
+            # robot -- so this arm's cost profile stays comparable with the
+            # ``+inf`` arm, both stopping before the kinematics.
             return (
                 self.infeasible_base
                 + self.violation_weight * cvd
@@ -197,8 +156,8 @@ class PenaltyEvaluator(CycleTimeEvaluator):
 
         outcome = self.evaluate(machines)
         if not outcome.feasible:
-            # Legal boxes, impossible robot.  Nothing here is graded, so this
-            # is the flat part of the landscape the penalty does not reach.
+            # Legal boxes, impossible robot: the flat part of the landscape
+            # the penalty does not reach.
             return self.infeasible_base
 
         if outcome.cycle_time >= self.infeasible_base:
@@ -214,9 +173,9 @@ class PenaltyEvaluator(CycleTimeEvaluator):
 class CountingEvaluator(CycleTimeEvaluator):
     """The ordinary ``+inf`` evaluator, plus the feasible-evaluation counter.
 
-    The baseline and repair arms use this rather than the base class so that
-    the feasible-evaluation share is computed by identical code in all four
-    arms; a metric that is defined differently per arm is not a comparison.
+    The ``+inf`` arms use this rather than the base class so the feasible
+    share is computed by identical code everywhere; a metric defined
+    differently per arm is not a comparison.
     """
 
     def __init__(self, instance: Instance, **kwargs):

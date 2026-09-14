@@ -1,20 +1,17 @@
-"""
-Planar geometry of the workcell floor: machines, their loading ports, and the
-three purely geometric feasibility tests.
+"""Planar geometry of the cell floor: machines, loading ports, and the three
+purely geometric feasibility tests.
 
-A machine is an upright box standing on the floor.  Its *footprint* is a
-rectangle that may be rotated about the vertical axis; its *top surface* is at
-height ``height`` and carries the loading port the robot reaches into.  The
-port sits at a fixed place in the machine's own frame, so rotating a machine
-moves the point the robot must reach -- which is why the rotation gene is not
-decorative here.
+A machine is an upright box on the floor.  Its *footprint* is a rectangle that
+may be rotated about the vertical axis; its top surface carries the loading
+port.  The port is fixed in the machine's own frame, so rotating a machine
+moves the point the robot must reach.
 
-Everything is metres and degrees-in / radians-out at the boundary: the layout
-genes are in degrees because that is what the GA mutates, and the robot code
-is handed radians.
+Metres throughout, with degrees in and radians out at the boundary: the layout
+genes are degrees because that is what the GA mutates, the robot code takes
+radians.
 
-Nothing in this module knows about the robot.  Reachability and manipulability
-live in :mod:`arm_study.robot`; this file answers only "do the boxes fit".
+Nothing here knows about the robot -- reachability and manipulability live in
+:mod:`robot`; this file answers only "do the boxes fit".
 """
 
 from __future__ import annotations
@@ -352,37 +349,28 @@ def repair_placement(
 ) -> List[Machine]:
     """Project an unplaceable layout back onto the placeable set.
 
-    Translation only: rotations are left exactly as the GA drew them, so the
-    repair moves machines without touching the gene that decides where the
-    loading port ends up.  Three moves, applied in a loop because they
-    interact -- pushing a machine off the robot's column can push it into a
-    neighbour, and clipping it back into the cell can undo either:
+    Translation only -- rotations come back exactly as drawn, so the repair
+    never touches the gene deciding where the loading port ends up.  Three
+    moves, looped because they interact (pushing a machine off the robot's
+    column can push it into a neighbour, and clipping undoes either):
 
     1. clip each centre into the cell, inset by the footprint half-diagonal
        as :meth:`Instance.gene_bounds` does, and by ``margin`` again;
-    2. push any machine fouling the robot's column radially outward until it
-       clears, by the shortfall :func:`keep_out_shortfall` reports;
-    3. separate each overlapping pair along the axis needing the smallest
-       move -- the minimum translation of :func:`overlap_depth`, which is the
-       exact inverse of the test :func:`rectangles_overlap` applies.
+    2. push any machine fouling the robot's column radially clear, by the
+       shortfall :func:`keep_out_shortfall` reports;
+    3. separate each overlapping pair by the minimum translation of
+       :func:`overlap_depth` -- the exact inverse of the overlap test.
 
-    ``margin`` is projected *past* each constraint rather than onto it.  A
-    layout pushed exactly onto the boundary is placeable only by measure zero
-    and is brittle downstream -- the arm still has to reach into it without
-    fouling anything -- so the slack is what makes a repaired layout usable
-    rather than merely legal.
+    ``margin`` is projected *past* each constraint, not onto it: a layout on
+    the boundary is placeable only by measure zero and brittle downstream,
+    since the arm still has to reach into it.
 
-    Identity on the placeable set: a layout that already passes
-    :func:`layout_is_placeable` is returned untouched, margin or no margin, so
-    this is a projection rather than a deformation of the whole space.  It is
-    also objective-blind -- no cycle time is ever evaluated -- so it repairs
-    the representation without doing local search on the thing being
-    optimised.
+    Two properties make this a projection rather than local search.  It is
+    **identity on the placeable set**, so a legal layout is returned
+    untouched; and it is **objective-blind**, evaluating no cycle time.
 
-    The loop is bounded.  A crowded instance can be unrepairable in this many
-    passes and the caller gets back whatever the last pass produced; it is not
-    promised to be placeable, only closer, and the feasibility test still
-    decides.
+    The loop is bounded, so a crowded instance can come back unrepaired --
+    closer, not promised placeable, with the feasibility test still deciding.
     """
     placed = [m.copy_at(m.x, m.y, m.rotation) for m in machines]
     if layout_is_placeable(placed, bounds, base_xy, keep_out_radius, clearance):
@@ -393,10 +381,9 @@ def repair_placement(
     base = np.asarray(base_xy, dtype=float)
     tolerance = clearance + margin
 
-    # Rotation is fixed for the whole repair, so a machine's corner offsets
-    # from its own centre -- and the axes its edges define -- are constants.
-    # Projecting the offsets onto every axis once turns each pair test in the
-    # loop below into a handful of adds.
+    # Rotation is fixed for the whole repair, so corner offsets and edge axes
+    # are constants: projecting them onto every axis once turns each pair test
+    # in the loop below into a handful of adds.
     offsets = [m.corners() - np.array([m.x, m.y]) for m in placed]
     angles = np.radians([m.rotation for m in placed])
     axes = np.empty((2 * n, 2), dtype=float)
@@ -408,13 +395,12 @@ def repair_placement(
 
     centres = np.array([[m.x, m.y] for m in placed], dtype=float)
     radii = np.array([m.footprint_radius for m in placed])
-    # The half-diagonal inset of Instance.gene_bounds, plus the same slack the
-    # other two constraints are given -- a centre clipped exactly onto the
-    # inset leaves the corner on the wall, where within_bounds is deciding on
-    # rounding error in the rotation.  A machine too big for the cell has no
-    # inset to clip to, and np.clip with lower > upper would silently return
-    # the upper; parking it in the middle is the honest degenerate answer, and
-    # the feasibility test still rejects the layout.
+    # Half-diagonal inset plus the same slack the other constraints get: a
+    # centre clipped exactly onto the inset leaves the corner on the wall,
+    # where within_bounds decides on rounding error.  A machine too big for
+    # the cell has no inset to clip to (np.clip would silently return the
+    # upper), so it is parked in the middle and the feasibility test rejects
+    # the layout.
     inset = radii + margin
     lower = np.stack([min_x + inset, min_y + inset], axis=1)
     upper = np.stack([max_x - inset, max_y - inset], axis=1)

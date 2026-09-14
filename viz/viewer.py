@@ -1,35 +1,27 @@
-"""
-A standalone, actually-rotatable viewer for a solved cycle.
+"""A standalone, actually-rotatable viewer for a solved cycle.
 
-Why this exists: a GIF can only ever show the viewpoints it was rendered from,
-and a single fixed isometric view is exactly what makes boxes at different
-depths read as though they intersect.  This writes the scene -- machine boxes,
-tool path, and the robot itself -- into a self-contained HTML page that
-projects and depth-sorts it in the browser, so the viewpoint belongs to
-whoever is reading it.
+A GIF shows only the viewpoints it was rendered from, and a single fixed
+isometric view is what makes boxes at different depths read as intersecting.
+This writes the scene -- machine boxes, tool path and the robot -- into a
+self-contained HTML page that projects and depth-sorts in the browser, so the
+viewpoint belongs to whoever is reading it.
 
-The robot is a **solid model**, not a polyline.  :mod:`arm_study.armmesh`
-sends its ~170 polygons once, in link-local coordinates, together with the
-four joint angles of every sampled instant; the page rebuilds the five link
-transforms itself (the same ones
-:meth:`arm_study.robot.Puma560Arm.link_frames` computes) and lights each
-polygon from its world normal.  That is what lets the arm re-shade as the
-camera turns, and it keeps the page a few tens of kilobytes rather than a few
-megabytes.
+The robot is a solid model, not a polyline.  :mod:`armmesh` sends its ~170
+polygons once in link-local coordinates, with the four joint angles per
+sampled instant; the page rebuilds the five link transforms itself and lights
+each polygon from its world normal.  That is what lets the arm re-shade as the
+camera turns, and keeps the page tens of kilobytes rather than megabytes.
 
-Every polygon in the scene -- machine faces and robot facets alike -- goes
-into one list that is sorted back to front each frame (painter's algorithm),
-so the arm occludes the machines it is in front of and is hidden by the ones
-it is behind, from *any* angle rather than only the one it was baked at.
+Every polygon -- machine faces and robot facets alike -- goes into one list
+sorted back to front each frame (painter's algorithm), so the arm occludes
+what it is in front of and is hidden by what it is behind, from any angle.
 
-Playback runs off ``requestAnimationFrame`` with a speed control: a retracted
-cycle is a few hundred sampled instants and a third of a minute to watch
-through once at 1x, which is longer than anyone spends on it.  The control
-scales the milliseconds per instant, so 0.25x is as available as 16x.
+Playback runs off ``requestAnimationFrame`` with a speed control scaling the
+milliseconds per instant, so 0.25x is as available as 16x -- a retracted cycle
+is a few hundred instants, longer at 1x than anyone spends on it.
 
-No libraries and no network access: the geometry is inlined as JSON and the
-renderer is about a hundred lines of canvas drawing, so the file opens
-straight off the filesystem.
+No libraries, no network: geometry inlined as JSON and about a hundred lines
+of canvas drawing, so the file opens straight off the filesystem.
 """
 
 from __future__ import annotations
@@ -207,8 +199,8 @@ function draw() {
 
   /* Painter's algorithm over EVERY drawable -- machine faces, the robot's
      facets, each segment of the tool path and each port marker go into one
-     list and are sorted back to front together.  Sorting them separately is
-     what used to make the arm float in front of a machine it was behind. */
+     list and are sorted back to front together.  Sorting them separately
+     makes the arm float in front of a machine it is behind. */
   var items = [], j, k;
 
   function pushPoly(world, fill, stroke, label) {

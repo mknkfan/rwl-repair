@@ -1,46 +1,29 @@
-"""
-Point-to-point motion with a trapezoidal velocity profile, and the cycle time
-that falls out of it.
+"""Point-to-point motion with a trapezoidal velocity profile, and the cycle
+time that falls out of it.
 
-The model
---------
-Between two stations the arm makes a coordinated joint-space move: every joint
-starts together, stops together, and follows the straight line between the two
-configurations.  Writing the move as ``q(t) = q_start + s(t) * dq`` with a
-single path parameter ``s`` running 0 -> 1, the whole motion is described by
-one scalar profile, and ``s`` is given the classic trapezoid -- accelerate at a
-constant rate, cruise at a constant rate, decelerate at the mirror of the
-acceleration.  A short move never reaches cruise and the trapezoid degenerates
-to a triangle; both cases are handled.
+Between two stations the arm makes a coordinated joint-space move: all joints
+start and stop together and follow the straight line between the two
+configurations.  Written ``q(t) = q_start + s(t) * dq`` with one path
+parameter ``s`` running 0 -> 1, the motion is a single scalar profile, and
+``s`` gets the classic trapezoid -- accelerate, cruise, decelerate --
+degenerating to a triangle when the move is too short to reach cruise.  A
+shared ``s`` keeps the joints synchronised, so the tool follows a repeatable
+path (standard trapezoidal time scaling; Lynch & Park, *Modern Robotics* 9.2).
 
-Why a shared ``s`` rather than a profile per joint: it keeps the joints
-synchronised, so the tool follows a repeatable path instead of a shape that
-depends on which joint happened to finish first.  This is the standard
-trapezoidal time scaling (Lynch & Park, *Modern Robotics*, sec. 9.2).
+Joint ``i`` moves at ``|dq_i| * s_dot`` and ``|dq_i| * s_ddot``, so every
+joint stays inside its own limits iff
 
-Respecting the limits
----------------------
-Joint ``i`` moves through ``dq_i``, so its rate is ``|dq_i| * s_dot`` and its
-acceleration ``|dq_i| * s_ddot``.  Every joint therefore stays inside its own
-limits as long as
+    s_dot  <= min_i ( v_i / |dq_i| )        s_ddot <= min_i ( a_i / |dq_i| )
 
-    s_dot  <= min_i ( v_i / |dq_i| )        and
-    s_ddot <= min_i ( a_i / |dq_i| )
+and the fastest legal move takes those with equality.  The joint attaining the
+minimum paces the move; the rest coast.  That is what makes cycle time a real
+function of the layout rather than a rescaled distance -- a move swinging the
+waist is paced by the waist, one reaching out by the shoulder or elbow, and
+the two have different limits.
 
-and the fastest legal move takes those bounds with equality.  The joint that
-attains the minimum is the one governing the move; the others coast below
-their limits.  This is what makes the cycle time a real function of the layout
-rather than a rescaled distance: a move that swings the waist a long way is
-paced by the waist, one that mostly reaches out is paced by the shoulder or
-elbow, and the two have different limits.
-
-Cycle
------
-The robot starts at a home pose, visits the machines in the process order, and
-returns home.  Cycle time is the sum of the segment times plus a fixed dwell
-at each station for the actual pick or place.  Dwell is a constant, so it
-shifts every layout equally and never changes the ranking -- it is included so
-the reported number is a cycle time rather than a travel time.
+Cycle time is the sum of segment times plus a fixed dwell per station.  Dwell
+is constant, so it shifts every layout equally and never changes the ranking;
+it is included so the number reported is a cycle time, not a travel time.
 """
 
 from __future__ import annotations

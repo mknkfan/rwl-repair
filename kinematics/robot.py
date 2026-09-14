@@ -1,42 +1,24 @@
-"""
-A 4-DOF arm built on the Puma 560's link geometry: kinematics, closed-form
-inverse kinematics, the task Jacobian and the singularity measure.
+"""A 4-DOF arm on the Puma 560's link geometry: kinematics, closed-form IK,
+the task Jacobian and the singularity measure.
 
-Why 4 DOF, and how that squares with the Puma 560
--------------------------------------------------
-The Puma 560 is a 6-DOF arm: three joints place the wrist centre and three
-orient the tool.  This study is a top-down pick-and-place cell -- the robot
-descends vertically onto a loading port on each machine's top face -- so the
-tool's roll about its own approach axis is irrelevant to the task.  The two
-roll joints (the manufacturer's joints 4 and 6) are therefore **locked at
-zero**, leaving four driven joints:
+**Why 4 DOF.** The Puma 560 is 6-DOF: three joints place the wrist centre,
+three orient the tool.  The task here is a top-down pick, so tool roll about
+the approach axis is irrelevant and the two roll joints (the manufacturer's 4
+and 6) are locked at zero, leaving ``q1`` waist, ``q2`` shoulder pitch, ``q3``
+elbow pitch and ``q4`` wrist pitch -- the manufacturer's joints 1, 2, 3 and 5.
 
-===========  ====================================  ==========================
-this model   what it does                          Puma 560 joint
-===========  ====================================  ==========================
-``q1``       waist: rotates the arm about the       1
-             vertical
-``q2``       shoulder pitch                         2
-``q3``       elbow pitch                            3
-``q4``       wrist pitch                            5
-===========  ====================================  ==========================
+Published link dimensions (m)::
 
-The link dimensions are the published Puma 560 values (metres)::
-
-    a2 = 0.4318   upper arm
-    a3 = 0.0203   forearm offset
+    a2 = 0.4318   upper arm        d4 = 0.4318   forearm
+    a3 = 0.0203   forearm offset   d1 = 0.6718   shoulder height
     d3 = 0.15005  shoulder offset, perpendicular to the arm plane
-    d4 = 0.4318   forearm
-    d1 = 0.6718   shoulder height above the floor
 
-The forearm is modelled as one rigid link of length ``L3 = hypot(a3, d4) =
-0.4323`` m, which is exactly the elbow-to-wrist distance of the real arm.
+The forearm is one rigid link of length ``L3 = hypot(a3, d4) = 0.4323`` m,
+exactly the real elbow-to-wrist distance.
 
-Exact agreement with the manufacturer's model
----------------------------------------------
-The reference is the standard Denavit-Hartenberg table published for the Puma
-560 (Unimation; the same table Corke's Robotics Toolbox ships as
-``mdl_puma560``)::
+**Agreement with the manufacturer's model.** The reference is the standard DH
+table published for the Puma 560 (Unimation; the table Corke's Robotics
+Toolbox ships as ``mdl_puma560``)::
 
     j   theta      d         a        alpha      travel
     1   q1         0         0        +pi/2      -160 .. +160 deg
@@ -46,70 +28,46 @@ The reference is the standard Denavit-Hartenberg table published for the Puma
     5   q5         0         0        -pi/2      -100 .. +100 deg
     6   q6         0         0         0         -266 .. +266 deg
 
-This model's angles differ from that table by a fixed offset per joint and by
-nothing else.  :meth:`Puma560Arm.to_puma_angles` and
-:meth:`Puma560Arm.from_puma_angles` are exact inverses, and the self-test
-checks this model's tool pose against :func:`puma_dh_transform` -- an
-independent implementation of the table above -- to machine precision::
+This model's angles differ from it by a fixed offset per joint and nothing
+else, with ``psi3 = atan2(a3, d4) = 2.6926 deg``::
 
-    theta1 = q1
-    theta2 = q2
-    theta3 = q3 - pi/2 + psi3        psi3 = atan2(a3, d4) = 2.6926 deg
-    theta4 = 0                        (locked)
-    theta5 = q4 - psi3
-    theta6 = 0                        (locked)
+    theta1 = q1      theta3 = q3 - pi/2 + psi3     theta5 = q4 - psi3
+    theta2 = q2      theta4 = theta6 = 0  (locked)
 
-Two consequences are worth spelling out, because both were wrong in an
-earlier version of this file:
-
-* The ``q3`` offset is ``pi/2 - psi3``, not ``psi3``.  The manufacturer
-  measures joint 3 to the ``d4`` axis, and ``d4`` runs *across* the elbow, so
-  their ``q3 = 0`` puts the forearm nearly perpendicular to the upper arm.
-  The straight-elbow pose is ``theta3 = -pi/2 + psi3``.
-* The shoulder offset ``d3`` is on the **negative** side of the arm plane:
-  with ``q1 = 0`` the arm reaches along ``+x`` and the shoulder sits at
-  ``y = -d3``.  Getting that sign wrong mirrors the robot, which does not
-  matter while the joint travel is symmetric and matters a great deal now
-  that it is the manufacturer's -- asymmetric -- travel.
+Two details the self-test pins down.  The ``q3`` offset is ``pi/2 - psi3``,
+not ``psi3``: the manufacturer measures joint 3 to the ``d4`` axis and ``d4``
+runs *across* the elbow, so their ``q3 = 0`` is nearly perpendicular to the
+upper arm.  And ``d3`` is on the **negative** side of the arm plane -- at
+``q1 = 0`` the arm reaches along ``+x`` and the shoulder sits at ``y = -d3``;
+the opposite sign mirrors the robot, which matters once the travel is the
+real, asymmetric one.
 
 :data:`PUMA_TRAVEL` holds the table's travel verbatim and :class:`ArmLimits`
-derives this model's ranges from it.  Nothing is rounded "inwards" any more:
-a configuration this model calls legal is one the real arm can hold, and one
-it calls illegal the real arm cannot.
+derives this model's ranges from it, unrounded: a configuration this model
+calls legal the real arm can hold, and one it calls illegal it cannot.  Joint
+2 travels past ``+180`` deg, so angles cannot be folded into ``(-pi, pi]`` --
+a genuine ``+200`` deg shoulder would come back as ``-160`` and be rejected.
+:meth:`Puma560Arm._wrap_into_travel` folds each joint into the ``2*pi`` window
+centred on its own travel instead.
 
-Joint 2 travels past ``+180`` degrees, so angles can no longer simply be
-folded into ``(-pi, pi]`` -- a genuine ``+200`` degree shoulder solution would
-come back as ``-160`` and be rejected.  :meth:`Puma560Arm._wrap_into_travel`
-folds each joint into the ``2*pi`` window centred on its own travel instead.
+**Why the IK is closed-form.** The task is tool position ``(x, y, z)`` plus a
+vertical approach -- four constraints on four joints, so a target has a finite
+set of exact solutions rather than a null space.  No iteration inside the
+objective, which is what makes 60 000 evaluations per run affordable.  Four
+branches exist (shoulder left/right x elbow up/down); :mod:`evaluator` picks
+one and holds it for the whole cycle, as a real cell would.
 
-Task and why the arm is exactly determined
-------------------------------------------
-The task is the tool tip position ``(x, y, z)`` **plus** the constraint that
-the tool points straight down.  That is four constraints on four joints, so a
-target admits a finite set of exact solutions rather than a null space -- there
-is nothing to optimise inside the IK and no iteration, which matters when the
-GA calls this 60 000 times per run.  Four branches exist (shoulder left/right
-x elbow up/down); :mod:`arm_study.evaluator` picks one branch and holds it for
-the whole cycle, as a real cell would rather than reconfiguring mid-cycle.
-
-Singularity
------------
-Because the vertical approach fixes the tool pitch, ``q4`` is not free: it is
-whatever makes ``q2 + q3 + q4 = -pi/2``.  The motion actually available to the
-tool is therefore three-dimensional, and the honest Jacobian is the 3x3
-:meth:`position_jacobian` -- the derivative of tool position with respect to
-``(q1, q2, q3)`` along the constraint.  Its smallest singular value
-``sigma_min`` has units of metres per radian and answers the question the
-threshold is really asking: how much tool motion do I get for a unit of joint
-motion, in the worst direction?
-
-Its determinant works out to ``a2 * L3 * sin(q3) * sqrt(rho^2 + d3^2)``, so the
-arm is singular exactly at elbow lock-out (``q3 = 0``) and full fold
-(``q3 = +-pi``).  Note the shoulder offset ``d3`` keeps the last factor away
-from zero, which is precisely why the real Puma has that offset -- the
-shoulder singularity over the base axis is designed out.  Requiring
-``sigma_min >= threshold`` therefore carves out a well-conditioned annulus:
-machines may sit neither at arm's length nor folded up against the column.
+**Singularity.** The vertical approach fixes ``q2 + q3 + q4 = -pi/2``, so
+``q4`` is not free and the motion available to the tool is 3-D.  The honest
+Jacobian is the 3x3 :meth:`position_jacobian`, ``d(x,y,z)/d(q1,q2,q3)`` along
+that constraint; its smallest singular value ``sigma_min`` is in m/rad and
+answers how much tool motion a unit of joint motion buys in the worst
+direction.  Its determinant is ``a2 * L3 * sin(q3) * sqrt(rho^2 + d3^2)``, so
+the arm is singular exactly at elbow lock-out (``q3 = 0``) and full fold
+(``q3 = +-pi``).  The shoulder offset ``d3`` keeps the last factor off zero --
+precisely why the real Puma has it.  Requiring ``sigma_min >= threshold``
+carves out a well-conditioned annulus: machines may sit neither at arm's
+length nor folded against the column.
 """
 
 from __future__ import annotations

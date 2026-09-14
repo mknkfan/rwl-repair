@@ -1,59 +1,42 @@
-"""
-Does the placement repair actually buy anything?
+"""Does the placement repair actually buy anything?
 
     python -m arm_study.experiments.run_repair_ab                    # 10 instances x 15 seeds
     python -m arm_study.experiments.run_repair_ab --runs 5 --generations 100
     python -m arm_study.experiments.run_repair_ab --only aggregate
 
-The repair projects an unplaceable child back onto the placeable set instead of
+Repair projects an unplaceable child back onto the placeable set instead of
 letting it score ``+inf``.  That is obviously good for the *placement* pass
-rate; whether it is good for the *cycle time* is a different question and the
-one this script answers, because placement is only the first of the
-constraints.  A repaired layout still has to be reachable, still has to clear
-the manipulability threshold, and still has to let the arm swing between
-stations without hitting anything.  Repair buys evaluations that are no longer
-wasted on geometry, and pays for them in two currencies: it collapses distinct
-infeasible children onto the constraint boundary, which costs diversity, and it
-biases the population towards layouts that sit *on* that boundary, which is
-exactly where the arm has the least room.
+rate; whether it is good for the *cycle time* is the question here, because
+placement is only the first constraint -- a repaired layout still has to be
+reachable, clear the manipulability threshold, and let the arm swing between
+stations without hitting anything.  Repair also pays in two currencies: it
+collapses distinct infeasible children onto the constraint boundary, costing
+diversity, and it biases the population towards layouts sitting *on* that
+boundary, which is where the arm has least room.
 
-Design
-------
-Paired, and the pairing is the whole point.  For each (instance, seed) the two
-arms are handed the *same* rejection-sampled initial population and the same
-seed, so the runs start identical and diverge only where the repair operator
-fires.  Differences are therefore taken within a pair, and the statistics are
-over pairs rather than over runs -- which removes the instance-to-instance
-spread in cycle time, far the largest source of variance here, from the
-comparison.
+**Design.** Paired, and the pairing is the point: for each (instance, seed)
+both arms are handed the same rejection-sampled initial population and seed,
+so the runs start identical and diverge only where repair fires.  Differences
+are taken within a pair, which removes the instance-to-instance spread in
+cycle time -- far the largest source of variance -- from the comparison.  Both
+arms get the same evaluation budget, so "repair helps" must mean a better
+answer for the same spend; ``cpu_time`` is reported because charging repair
+nothing for its own compute is the generous reading.
 
-Both arms get the same evaluation budget, so "repair helps" has to mean a
-better answer for the same spend.  Charging the repair nothing for its own
-compute is the generous reading; ``cpu_time`` is reported so the reader can see
-what it cost in seconds as well.
+**Reported.** ``cycle_time`` the answer, ``null`` when a run found nothing ·
+``feasible`` whether it found one at all, with discordant pairs counted
+separately (McNemar) since repair could pay for itself purely by rescuing runs
+· ``mean_feasible`` the population's finite-fitness share, the mechanism
+repair acts on · ``evals_to_first`` · ``mean_diversity``, the cost side.
 
-What is reported
-----------------
-``cycle_time``      the answer.  Minimised; ``null`` when a run never found a
-                    feasible layout.
-``feasible``        whether it found one at all.  Repair could in principle pay
-                    for itself entirely by rescuing runs that would otherwise
-                    return nothing, so the discordant pairs are counted
-                    separately (McNemar) rather than folded into the means.
-``mean_feasible``   mean over generations of the fraction of the population
-                    with finite fitness -- the mechanism the repair acts on.
-``evals_to_first``  evaluations spent before the first feasible layout.
-``mean_diversity``  the cost side: mean gene spread over the run.
+Significance is by paired sign-flip permutation -- exact where the pair count
+allows, sampled otherwise -- plus Wilcoxon signed-rank.  Both are
+distribution-free, which matters because these differences are neither normal
+nor symmetric.  No scipy: writing the two out keeps the dependency list at
+numpy.
 
-Significance is by paired sign-flip permutation, exact where the pair count
-allows it and sampled otherwise, plus a Wilcoxon signed-rank statistic.  Both
-are distribution-free, which matters because cycle-time differences here are
-neither normal nor symmetric.  No scipy: the two tests are short enough to
-write out, and doing so keeps the study's dependency list at numpy.
-
-Seeding: run seed ``= 42 + 100 * instance_index + run``, the rule the rest of
-the study uses, so a pair here starts from the same population as the
-corresponding run of ``run_ga``.
+Run seed ``= 42 + 100 * instance_index + run``, so a pair starts from the same
+population as the corresponding run of ``run_ga``.
 """
 
 from __future__ import annotations
@@ -560,7 +543,7 @@ def write_report(path: str, summaries: Dict, feasibility: Dict,
         "diversity undisturbed, **not** as a measurement of whether it presses "
         "machines together onto the placement boundary. Positional collapse "
         "needs a position-only trace, and adding one to `ga.py` would change "
-        "what every archived study reports, so it was measured separately "
+        "what every run tree reports, so it was measured separately "
         "instead: over 3 instances x 4 seeds x 150 generations the mean "
         "position spread is 73.8 mm without repair and 71.8 mm with it, a "
         "2.7 % difference, and by the last generation the repaired runs hold "

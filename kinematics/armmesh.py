@@ -1,26 +1,22 @@
-"""
-A solid model of the Puma 560, built from the same link frames the kinematics
+"""A solid model of the Puma 560, built from the link frames the kinematics
 use.
 
-How it is drawn
----------------
 Each part is a list of convex polygons in its link's local frame.  Two
 consumers use them:
 
-* :mod:`arm_study.visualize` transforms them to world coordinates and hands
-  the whole scene -- machines *and* arm -- to a single matplotlib
-  ``Poly3DCollection``.  One collection is the point: matplotlib depth-sorts
-  within a collection but not between collections, so putting everything in
-  one is what makes the arm occlude and be occluded by the machines correctly.
-* :mod:`arm_study.viewer` ships the local polygons to the browser **once**,
-  with only the four joint angles per frame, and rebuilds the transforms in
-  JavaScript.  That is both smaller than sending baked world geometry per
-  frame and what lets the page re-shade the arm as the viewpoint turns.
+* :mod:`visualize` transforms them to world coordinates and hands the whole
+  scene -- machines *and* arm -- to a single ``Poly3DCollection``.  One
+  collection is the point: matplotlib depth-sorts within a collection but not
+  between collections, so one is what makes the arm occlude and be occluded
+  by the machines correctly.
+* :mod:`viewer` ships the local polygons to the browser once, with only the
+  four joint angles per frame, and rebuilds the transforms in JavaScript --
+  smaller than baked world geometry per frame, and what lets the page
+  re-shade the arm as the viewpoint turns.
 
-Shading is one directional light plus an ambient term, applied per polygon
-from its world normal.  It is not a light model anyone should believe, but it
-is enough for the eye to read a cylinder as round and to tell the top of a
-link from its side.
+Shading is one directional light plus ambient, per polygon from its world
+normal.  Not a light model anyone should believe, but enough to read a
+cylinder as round and tell the top of a link from its side.
 """
 
 from __future__ import annotations
@@ -236,25 +232,20 @@ def swept_radius(arm: Puma560Arm) -> float:
 # the collision model
 # ----------------------------------------------------------------------
 #
-# The evaluator has to answer "is any part of the robot inside a machine?", and
-# it has to answer it tens of thousands of times.  Testing the 164 polygons
-# against six boxes each time is far too slow, so the arm is bounded instead by
-# a chain of spheres strung along its three moving link axes -- the upper arm,
-# the forearm and the tool.
+# "Is any part of the robot inside a machine?", tens of thousands of times --
+# far too slow against 164 polygons, so the arm is bounded by a chain of
+# spheres along its three moving link axes (upper arm, forearm, tool).
 #
-# The radii are *measured off the drawn solid*, not chosen: every point of the
-# mesh in a link's frame is assigned to the nearest sphere centre on that
-# link's axis, and the radius is the furthest such point.  The union of spheres
-# therefore contains the model that gets drawn, which is the property that
-# matters -- a layout the evaluator passes cannot show the arm inside a box in
-# any of the figures.  :mod:`arm_study.tests.selftest` checks the containment
-# directly.
+# The radii are *measured off the drawn solid*, not chosen: each mesh point in
+# a link's frame goes to the nearest sphere centre on that link's axis, and
+# the radius is the furthest such point.  The union therefore contains the
+# model that gets drawn, so a layout the evaluator passes cannot show the arm
+# inside a box in any figure.  `selftest` checks the containment directly.
 #
-# The base and the waist are not in the chain, and do not need to be: the
-# pedestal reaches 0.175 m from the waist axis and the cell already keeps
-# machines outside a 0.18 m keep-out disc, while the turret and shoulder
-# casting reach further (0.256 m) but only above z = 0.517 m, which is well
-# clear of the tallest machine in the family.  `selftest` checks both.
+# The base and waist need not be in the chain: the pedestal reaches 0.175 m
+# from the waist axis and machines are already kept outside a 0.18 m keep-out
+# disc, while the turret and shoulder casting reach 0.256 m but only above
+# z = 0.517 m, clear of the tallest machine in the family.
 
 #: How many spheres bound each link.  More is tighter and slower; these are
 #: the smallest counts at which the bound stops being visibly baggy.

@@ -1,15 +1,10 @@
-"""
-Crossover x mutation ablation for the static GA on the cycle-time objective.
+"""Crossover x mutation ablation for the GA on the cycle-time objective.
 
 A full-factorial grid over the two operator rates, on the same instances,
-seeds and initial populations ``run_ga.py`` uses --
-
-* crossover rate : 0.1, 0.3, 0.5, 0.7, 0.9
-* mutation rate  : 0.3, 0.2, 0.1, 0.05, 0.01, 0.001
-
--- which is 30 combinations.  Every combination is run ``--runs`` times on
-every selected instance (default: 20 runs x 10 'test' instances = 200 runs per
-combination, 6000 runs in total).
+seeds and initial populations ``run_ga.py`` uses -- crossover 0.1, 0.3, 0.5,
+0.7, 0.9 against mutation 0.3, 0.2, 0.1, 0.05, 0.01, 0.001, so 30
+combinations.  Each is run ``--runs`` times on every selected instance
+(default 20 runs x 10 test instances = 6000 runs in total).
 
     python -m arm_study.experiments.run_ablation --workers 12
     python -m arm_study.experiments.run_ablation --dry-run          # plan and cost only
@@ -17,37 +12,29 @@ combination, 6000 runs in total).
     python -m arm_study.experiments.run_ablation --only aggregate   # rebuild the tables
     python -m arm_study.experiments.run_ablation --repair           # sweep with the repair on
 
-What the two rates mean in :class:`ga.ConfigurableGA`: the crossover rate is
-the probability that a selected *pair* undergoes uniform crossover, and the
-mutation rate is the probability that any one *machine* (a 3-gene block: x, y,
-rotation) receives Gaussian jitter and a re-orientation.  So on a 6-machine
-instance a mutation rate of 0.001 leaves roughly 994 offspring in 1000
-untouched -- the low end of the sweep is close to a crossover-only GA, which is
-why it is in the grid.
+The crossover rate is the probability a selected *pair* undergoes uniform
+crossover; the mutation rate is the probability any one *machine* (a 3-gene
+block) gets Gaussian jitter and a re-orientation.  On six machines, a mutation
+rate of 0.001 leaves about 994 offspring in 1000 untouched, so the low end of
+the sweep is close to a crossover-only GA -- which is why it is in the grid.
 
-Pairing
--------
-The run seed is ``run_ga.run_seed_for`` -- ``42 + 100 * instance_index + run``
--- so on a given (instance, run) pair all 30 combinations start from the *same*
-initial population.  The cells are therefore paired, which is what makes the
+Pairing is by ``run_seed_for``, so on a given (instance, run) all 30
+combinations start from the *same* initial population.  That is what makes the
 per-seed ranking in the summary meaningful.
 
-Everything is written under ``--results-dir`` (default
-``arm_study/results/ablation/``)::
+Everything is written under ``--results-dir``::
 
-    raw/<combo>/<instance>_run<k>.json  one JSON per run: operator settings,
-                                        scalars, the winning chromosome and
-                                        (by default) compact traces
+    raw/<combo>/<instance>_run<k>.json  per run: operator settings, scalars,
+                                        the winning chromosome and traces
     runs.csv / runs.json                every run, scalars only
     summary.csv / summary.json          per combination
     summary_per_instance.csv            per combination x instance
     summary.md                          the readable report
     metadata.json                       grid, operators, instances, environment
 
-Cycle time is **minimised** (seconds) and an infeasible run scores ``+inf``.
-JSON has no literal for that, so such a run is written as ``cycle_time: null``
-with ``feasible: false``; the cycle-time statistics are taken over feasible
-runs only and every table carries the feasible count.
+Cycle time is **minimised** and an infeasible run scores ``+inf``, written as
+``cycle_time: null`` with ``feasible: false``; statistics are over feasible
+runs and every table carries the feasible count.
 """
 
 from __future__ import annotations
@@ -65,8 +52,8 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-# Run as a script or as a module: either way the study's source directories
-# must be importable, because its modules import each other by bare name.
+# Run as a script or as a module: either way the source directories must be
+# importable, because the modules import each other by bare name.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from _paths import add_source_dirs, results_dir  # noqa: E402
 
@@ -660,9 +647,8 @@ def build_parser() -> argparse.ArgumentParser:
                            help="project an unplaceable child back onto the placeable "
                                 "set after mutation. Held fixed across the grid, so the "
                                 "sweep still varies the two rates and nothing else. Off "
-                                "by default: the archived results/ga_ablation/ runs were "
-                                "produced without it, and the rates are being measured "
-                                "on a different operator with it on.")
+                                "by default; with it on, the rates are being measured "
+                                "on a different operator.")
     operators.add_argument("--repair-margin", type=float, default=0.005,
                            help="metres of slack projected past each placement "
                                 "constraint by --repair; ignored without it")

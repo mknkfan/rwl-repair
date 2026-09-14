@@ -1,62 +1,49 @@
-"""
-The objective: cycle time of a layout, and the tests that decide whether a
-layout has a cycle time at all.
+"""The objective: cycle time of a layout, and the tests deciding whether a
+layout has one at all.
 
-Feasibility
------------
-A layout is feasible only if all five hold.  The first two are geometric and
-cheap; the rest need the robot and are only reached once those pass, which is
-what keeps 60 000 evaluations per run affordable.
+**Feasibility** needs all five.  The first two are geometric and cheap; the
+rest need the robot and are reached only once those pass, which is what keeps
+60 000 evaluations per run affordable.
 
 1. **Placement** -- every footprint inside the cell, clear of the robot's
-   column by ``keep_out_radius``, and disjoint from every other footprint with
-   at least ``clearance`` between them.
+   column by ``keep_out_radius``, and ``clearance`` apart from every other.
 2. **Reachability** -- the arm can put its tool on every loading port with a
    vertical approach, inside every joint's travel, and can retract from it.
-3. **Conditioning** -- at every port, ``sigma_min`` of the position Jacobian
-   is at least ``sigma_min_threshold``.  This is the anti-singularity test:
-   it rejects poses where the elbow is locked out or folded, near which the
-   joint rates needed for a given tool motion blow up.
-4. **Clearance** -- no part of the robot comes within ``arm_clearance`` of any
+3. **Conditioning** -- ``sigma_min`` of the position Jacobian at least
+   ``sigma_min_threshold`` at every port.  The anti-singularity test: it
+   rejects poses with the elbow locked out or folded, near which the joint
+   rates for a given tool motion blow up.
+4. **Clearance** -- no part of the robot within ``arm_clearance`` of any
    machine, at every station and (with ``check_path``) at samples along every
-   move.  The arm is bounded by the chain of spheres
-   :func:`armmesh.collision_spheres` measures off the solid model that gets
-   drawn, so a layout that passes cannot show the robot inside a box.
-5. **One posture for the whole cycle** -- a single IK branch must satisfy 2 to
-   4 at *every* station.  A real cell does not reconfigure the arm mid-cycle;
-   allowing a different posture at each station would let the optimiser buy
-   cycle time with elbow flips that no controller would execute.
+   move.  The arm is bounded by :func:`armmesh.collision_spheres`, measured
+   off the solid model that gets drawn, so a layout that passes cannot show
+   the robot inside a box.
+5. **One posture for the whole cycle** -- a single IK branch must satisfy 2-4
+   at *every* station.  A real cell does not reconfigure mid-cycle, and
+   without this the optimiser buys cycle time with elbow flips no controller
+   would execute.
 
-The motion
-----------
-Each station is bracketed by a **lift pose**: the same tool position raised to
-``retract`` metres above the tallest machine in the cell.  The cycle is
-therefore descend / dwell / retract / traverse, which is what a real cell does.
-It is not decoration: with direct point-to-point moves the tool interpolates in
-joint space between two ports and drags the forearm straight through whatever
-machine stands between them, and in a cell this tightly packed criterion 4 over
-the whole cycle is then not merely strict but *unsatisfiable* -- the GA finds
-no feasible layout at all.  With the retract it is satisfied by 99% of the
-layouts that clear the stations.  ``retract=None`` restores the direct moves,
-for comparison against the earlier form of this study.
+**The motion.** Each station is bracketed by a *lift pose*, the same tool
+position raised ``retract`` metres above the tallest machine, so the cycle is
+descend / dwell / retract / traverse.  Not decoration: with direct
+point-to-point moves the tool interpolates in joint space between ports and
+drags the forearm through whatever stands between them, making criterion 4
+over the whole cycle *unsatisfiable* in a cell this tight -- the GA finds no
+feasible layout at all.  With the retract, 99 % of the layouts that clear the
+stations clear the cycle.  ``retract=None`` restores the direct moves.
 
-Anything that fails scores ``+inf``.  That is a hard wall rather than a
-penalty on purpose: a penalty would need a scale relating metres of overlap to
-seconds of cycle time, and any choice of that scale is an unstated preference
-that shows up in the answer.
+Anything that fails scores ``+inf`` -- a hard wall rather than a penalty,
+because a penalty needs a scale relating metres of overlap to seconds, and
+any such choice is an unstated preference that shows up in the answer.
+(:mod:`penalty` builds the graded alternative and measures the difference.)
 
-The objective
--------------
-Among the branches that pass, the layout is scored by the fastest one -- the
-cell would be commissioned in its best working posture.  Cycle time itself is
-the trapezoidal total from :mod:`arm_study.trajectory`: home, every station in
-process order with its lift poses either side, back home, plus a dwell at each
-station.
+**The objective** is the fastest branch that passes -- the cell would be
+commissioned in its best working posture.  Cycle time is the trapezoidal total
+from :mod:`trajectory`: home, every station in process order with its lift
+poses either side, back home, plus a dwell at each station.
 
-Counting
---------
-``n_evals`` counts calls to :meth:`fitness`, so the GA's evaluation budget is
-measured in the same currency regardless of how much work each call did.
+``n_evals`` counts calls to :meth:`fitness`, so the evaluation budget is one
+currency regardless of how much work each call did.
 """
 
 from __future__ import annotations
@@ -90,7 +77,7 @@ REJECTIONS: Tuple[str, ...] = (
 class LayoutOutcome:
     """Everything the evaluator learned about one layout.
 
-    :meth:`CycleTimeEvaluator.fitness` throws all but the cycle time away; the
+    :meth:`CycleTimeEvaluator.fitness` keeps only the cycle time; the
     reporting and plotting code asks for this instead.
     """
 
@@ -149,12 +136,8 @@ class CycleTimeEvaluator:
         #: Spheres bounding the drawn solid, for the clearance test.
         self._spheres = collision_spheres(self.arm)
 
-        # -- the retract height -----------------------------------------
-        # Every move goes up to this height before it traverses and comes
-        # back down onto the port, which is what a real cell does and what
-        # keeps the arm out of the machines *between* stations.  Only the
-        # machines' heights enter it, and those are fixed by the instance, so
-        # it is one number per instance rather than per layout.
+        # Only machine heights enter this, and those are fixed by the
+        # instance, so it is one number per instance rather than per layout.
         #: Metres above the tallest machine that the tool retracts to.  Zero
         #: (or ``None``) restores the direct point-to-point moves.
         self.retract = None if retract is None else float(retract)
@@ -285,23 +268,16 @@ class CycleTimeEvaluator:
         ports: np.ndarray,
         branch: Tuple[int, int],
     ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
-        """The whole cycle as a list of configurations, plus which are stations.
+        """The whole cycle as configurations, plus which of them are stations.
 
-        Without a retract this is just ``home -> station -> ... -> home``, and
-        the tool takes whatever curve joint-space interpolation gives it
-        between two ports -- which, in a cell this tightly packed, drags the
-        forearm straight through the machines in between.
+        Without a retract, ``home -> station -> ... -> home``, the tool taking
+        whatever curve joint-space interpolation gives it between two ports.
+        With one, each station is bracketed by a lift pose at
+        :attr:`retract_height`, so the traverse happens with the whole arm
+        above everything it could hit.
 
-        With one, each station is bracketed by a **lift pose**: the same tool
-        position raised to :attr:`retract_height`, one number above the tallest
-        machine in the cell.  The cycle becomes descend / dwell / retract /
-        traverse, which is what a real cell does, and the traverse now happens
-        with the whole arm above everything it could hit.
-
-        Returns ``None`` when a lift pose is unreachable or outside the joint
-        travel -- lifting off a port at the edge of the envelope can put the
-        wrist beyond it, and a layout the robot cannot retract from is not a
-        layout it can run.
+        ``None`` when a lift pose is unreachable or outside the joint travel:
+        a layout the robot cannot retract from is not one it can run.
         """
         n = stations.shape[0]
         if not self.retract_height:
@@ -347,20 +323,16 @@ class CycleTimeEvaluator:
     ) -> np.ndarray:
         """The worst gap between the arm and each machine, per configuration.
 
-        The arm is bounded by the chain of spheres :func:`armmesh.collision_spheres`
-        measures off the drawn solid, so a layout that clears here cannot show
-        the robot inside a box in any figure.
+        The arm is bounded by :func:`armmesh.collision_spheres`, measured off
+        the drawn solid, so a layout that clears here cannot show the robot
+        inside a box in any figure.
 
-        One exemption, and it is a real one rather than a fudge: the spheres
-        bounding the wrist and gripper are ignored for a machine the tool is
-        *directly above* -- inside its footprint, at or above its top face.
-        That is the vertical approach corridor.  The tool tip sits exactly on
-        the top surface at a station, so its bounding sphere necessarily dips
-        below that surface; counting it would make every legal pick a
-        collision.  Nothing else is exempt: the same gripper still has to clear
-        every other machine, and the forearm and upper arm have to clear the
-        served machine too -- an arm that reaches over a tall machine and
-        clips its own station's top edge is a crash like any other.
+        One exemption: the wrist and gripper spheres are ignored for a machine
+        the tool is *directly above* -- the vertical approach corridor.  The
+        tool tip rests on the top surface at a station, so its sphere must dip
+        below it, and counting that would make every legal pick a collision.
+        Nothing else is exempt -- the gripper still clears every other
+        machine, and the forearm and upper arm clear the served one too.
         """
         centres, half, rotations = boxes
         points = self.arm.points_along_arm(configurations, self._spheres.coefficients)
@@ -386,17 +358,13 @@ class CycleTimeEvaluator:
         self, tour: np.ndarray, station_index: np.ndarray,
         boxes: Tuple[np.ndarray, ...],
     ) -> bool:
-        """Does the robot sweep through a machine on its way between waypoints?
+        """Does the robot sweep through a machine between waypoints?
 
-        Every move interpolates in *joint* space, so the tool follows a curve
-        rather than a straight line and the forearm swings above it; the
-        clearance at the endpoints says nothing about the middle.  This samples
-        every segment and applies the same whole-arm test the stations get.
-
-        The endpoints themselves are excluded -- they are the waypoints, and
-        the stations among them are covered by criterion 5.  With a retract in
-        place the descent and the lift are part of the approach corridor, which
-        :meth:`_clearances` already exempts for the machine being served.
+        Moves interpolate in *joint* space, so the tool follows a curve and
+        the forearm swings above it: clearance at the endpoints says nothing
+        about the middle.  This samples every segment and applies the same
+        whole-arm test.  Endpoints are excluded -- they are the waypoints,
+        already covered at the stations.
         """
         fractions = np.linspace(0.0, 1.0, self.path_samples + 2)[1:-1]
         for k in range(tour.shape[0] - 1):
@@ -430,11 +398,9 @@ def feasibility_rate(
     check_path: bool = False,
     check_arm: bool = True,
 ) -> Dict[str, float]:
-    """How hard the instance is: what fraction of random layouts survive each test.
+    """How hard the instance is: what share of random layouts survives each test.
 
-    A direct measure of how much the robot narrows the problem beyond the
-    packing constraints, and the number that says whether a GA run is doing
-    anything at all.
+    Measures how much the robot narrows the problem beyond packing alone.
     """
     from problems import random_layout
 

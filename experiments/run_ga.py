@@ -1,5 +1,4 @@
-"""
-Run the static GA on the cycle-time objective and write the study.
+"""Run the GA on the cycle-time objective and write the main result tree.
 
     python -m arm_study.experiments.run_ga                      # 10 instances x 10 seeds
     python -m arm_study.experiments.run_ga --instances 0 --runs 3 --generations 60
@@ -7,11 +6,10 @@ Run the static GA on the cycle-time objective and write the study.
     python -m arm_study.experiments.run_ga --repair             # with the placement repair
     python -m arm_study.experiments.run_ga --animate            # also write cycle.gif
 
-Everything is written under ``--results-dir`` (default
-``arm_study/results/baseline/``)::
+Everything is written under ``--results-dir``::
 
-    raw/<instance>_run<k>.json   one JSON per run: scalars, the winning
-                                 chromosome, the joint solution and traces
+    raw/<instance>_run<k>.json   per run: scalars, the winning chromosome,
+                                 the joint solution and traces
     runs.csv / runs.json         every run, scalars only
     summary.csv                  per instance: mean/median/best cycle time
     summary.md                   the readable report
@@ -20,14 +18,13 @@ Everything is written under ``--results-dir`` (default
                                  (and cycle.gif with --animate), best run
     figures/convergence.png      pooled across every run
 
-Cycle time is **minimised** and an infeasible run has ``+inf``.  JSON has no
-literal for that, so such a run is written as ``cycle_time: null`` with
-``feasible: false``; the statistics are taken over feasible runs and every
-table carries the feasible count.
+Cycle time is **minimised** and an infeasible run scores ``+inf``.  JSON has no
+literal for that, so it is written ``cycle_time: null`` with
+``feasible: false``; statistics are over feasible runs and every table carries
+the feasible count.
 
-Seeding: run seed ``= 42 + 100 * instance_index + run``, the same rule the
-distance study used, so a given (instance, run) pair always starts from the
-same initial population.
+Run seed ``= 42 + 100 * instance_index + run``, the rule every experiment here
+uses, so a given (instance, run) always starts from the same population.
 """
 
 from __future__ import annotations
@@ -46,9 +43,8 @@ from typing import Dict, Iterable, List, Optional, Sequence
 
 import numpy as np
 
-# Run as a script or as a module: either way the study's source directories
-# must be importable, because its modules import each other by bare name so
-# the package can be lifted somewhere else unchanged.
+# Run as a script or as a module: either way the source directories must be
+# importable, because the modules import each other by bare name.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from _paths import add_source_dirs, results_dir  # noqa: E402
 
@@ -379,8 +375,8 @@ def write_report(path: str, summary: Sequence[Dict], rows: Sequence[Dict],
             lines.append(f"| {name} | {count} |")
 
     lines.append(
-        "\n---\n\nWall-clock time is inflated when the study is run with `--workers > 1`; CPU "
-        "time and the evaluation count are the reliable effort measures in that case.\n"
+        "\n---\n\nWall-clock time is inflated with `--workers > 1`; CPU time and the "
+        "evaluation count are the reliable effort measures in that case.\n"
     )
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
@@ -515,10 +511,9 @@ def build_parser() -> argparse.ArgumentParser:
     ga.add_argument("--repair", action="store_true",
                     help="project an unplaceable child back onto the placeable set "
                          "after mutation, rather than spend its evaluation on a layout "
-                         "whose only fault is geometric. Off by default: the archived "
-                         "results/baseline/ runs were produced without it, so turning it on "
-                         "changes what the operators are being measured on. "
-                         "run_repair_ab.py is the paired A/B this option came from.")
+                         "whose only fault is geometric. Off by default, so the "
+                         "baseline is the plain GA. run_repair_ab.py is the paired "
+                         "A/B that measures it.")
     ga.add_argument("--repair-margin", type=float, default=0.005,
                     help="metres of slack projected past each placement constraint by "
                          "--repair; ignored without it")

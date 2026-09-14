@@ -1,38 +1,25 @@
-# arm_study — layout optimisation against robot cycle time
+# Robotic Arm Study: Layout Optimization Against Cycle Time
 
-A static GA that places machines in a robot workcell to minimise the **cycle
-time of a Puma 560**, subject to reachability and a manipulability floor.
+A genetic algorithm that places machines in a robot workcell to minimise the
+**cycle time of a Puma 560**, subject to reachability, a manipulability floor,
+and whole-cycle clearance between the arm and the machines.
 
-This directory is **self-contained**: it imports nothing from the rest of the
-repository, only `numpy` and `matplotlib`. Copy it anywhere and it runs.
+The package is **self-contained**: only `numpy` and `matplotlib`. Copy it
+anywhere and it runs.
 
 ```bash
-python -m arm_study.tests.selftest    # 63 checks on the physics and the search
+python -m arm_study.tests.selftest    # 64 checks on the physics and the search
 python -m arm_study.experiments.run_ga --workers 12 --animate
 python -m arm_study.experiments.run_ga --instances 0 --runs 3 --generations 60  # quick look
 python -m arm_study.experiments.run_ga --only aggregate figures                 # rebuild from raw/
-python -m arm_study.experiments.run_ablation --workers 12   # crossover x mutation grid
-python -m arm_study.experiments.run_ablation --dry-run      # its plan and CPU cost first
+python -m arm_study.experiments.run_ablation --workers 12    # crossover x mutation grid
+python -m arm_study.experiments.run_penalty_ab --workers 12  # constraint-handling arms
 ```
 
 Each script also runs directly — `python experiments/run_ga.py`,
 `python tests/selftest.py` — from anywhere.
 
 ---
-
-## What changed from the distance-based study
-
-| | distance study | this one |
-|---|---|---|
-| objective | Euclidean travel distance | **cycle time (s)** under trapezoidal joint motion |
-| robot | a point that moves | 4-DOF arm on Puma 560 geometry, modelled as a solid |
-| feasibility | overlap, workspace bounds | **+ reachability, joint travel, `σ_min` floor, arm/machine clearance** |
-| cost of a move | proportional to distance | set by the *slowest joint*, so it depends on which joints the move loads |
-
-The consequence: two layouts with identical total tool travel can differ
-noticeably in cycle time, because a move that swings the waist across the cell
-is paced by the waist's rate limit while a move that mostly reaches in and out
-is paced by the shoulder or elbow.
 
 ## The objective
 
@@ -64,6 +51,12 @@ and the fastest legal move takes those with equality. The joint attaining the
 minimum paces the move; the rest coast. Segment time is then the textbook
 closed form: `T = 1/ṡ + ṡ/s̈` (trapezoid) or `T = 2√(1/s̈)` (triangle).
 
+The consequence is that cycle time is a real function of the layout rather than
+a rescaled travel distance: two layouts with identical total tool travel can
+differ noticeably, because a move that swings the waist across the cell is
+paced by the waist's rate limit while a move that mostly reaches in and out is
+paced by the shoulder or elbow.
+
 ## Feasibility — `+∞` if any of these fails
 
 1. **Placement** — footprints inside the cell, clear of the robot column, and
@@ -75,11 +68,11 @@ closed form: `T = 1/ṡ + ṡ/s̈` (trapezoid) or `T = 2√(1/s̈)` (triangle).
    every port. This is the anti-singularity condition.
 5. **Clearance** — no part of the robot comes within 5 mm of any machine, at
    every station *and* at samples along every move. The arm is bounded by a
-   chain of spheres measured off the solid model in `kinematics/armmesh.py`, so a layout
-   that passes here *cannot* show the robot inside a box in any figure. The
-   one exemption is the approach corridor: the wrist and gripper are ignored
-   for a machine the tool is directly above — inside its footprint, at or
-   above its top face — because the tool tip rests on that top surface by
+   chain of spheres measured off the solid model in `kinematics/armmesh.py`, so
+   a layout that passes here *cannot* show the robot inside a box in any
+   figure. The one exemption is the approach corridor: the wrist and gripper
+   are ignored for a machine the tool is directly above — inside its footprint,
+   at or above its top face — because the tool tip rests on that top surface by
    definition, and counting it would make every legal pick a collision. The
    forearm and upper arm still have to clear that machine, and the gripper
    still has to clear every other one. `--no-path-check` narrows this to the
@@ -89,9 +82,11 @@ closed form: `T = 1/ṡ + ṡ/s̈` (trapezoid) or `T = 2√(1/s̈)` (triangle).
    without this the optimiser buys cycle time with elbow flips no controller
    would execute.
 
-Hard wall rather than a penalty, deliberately: a penalty needs a scale
+A hard wall rather than a penalty, for a reason: a penalty needs a scale
 relating metres of overlap to seconds of cycle time, and any such choice is an
-unstated preference that ends up in the answer.
+unstated preference that ends up in the answer. **[Constraint
+handling](#constraint-handling-wall-repair-or-penalty)** below builds the
+graded alternatives anyway and measures what they are worth.
 
 ## The robot
 
@@ -122,20 +117,19 @@ Rate limits are likewise the published maximum joint speeds — 100, 95, 100 and
 those alone are representative values, and they stay parameters rather than
 constants so the one soft number in the model is visible.
 
-Two things the self-test pins down, both of which were wrong before:
+Two details the self-test pins down:
 
 * the `q3` offset is `90° − ψ₃`, not `ψ₃` — the manufacturer measures joint 3
   to the `d4` axis and `d4` runs *across* the elbow, so their `q3 = 0` is
   nearly perpendicular to the upper arm, not collinear with it;
 * the shoulder offset `d3` is on the **negative** side of the arm plane (at
   `q1 = 0` the arm reaches along `+x` and the shoulder sits at `y = −d3`).
-  The old sign mirrored the robot, which is harmless while the travel is
-  symmetric and is not harmless now that it is the real, asymmetric travel.
+  The opposite sign mirrors the robot, which matters once the travel is the
+  real, asymmetric one.
 
-Joint 2 travels past `+180°`, so IK solutions can no longer be folded into
-`(−π, π]` — a genuine `+200°` shoulder would come back as `−160°` and be
-rejected. Each joint is folded into the `2π` window centred on **its own**
-travel instead.
+Joint 2 travels past `+180°`, so IK solutions cannot be folded into `(−π, π]`
+— a genuine `+200°` shoulder would come back as `−160°` and be rejected. Each
+joint is folded into the `2π` window centred on **its own** travel instead.
 
 Published link geometry (m): `a2 = 0.4318`, `a3 = 0.0203`, `d3 = 0.15005`,
 `d4 = 0.4318`, shoulder height `d1 = 0.6718`, tool 0.10. The forearm is one
@@ -195,20 +189,25 @@ must reach, and with it the joint angles, the manipulability and the time.
 
 Difficulty, over 2 000 random layouts per instance (mean of the 10 test
 instances): **3.2 % feasible** — 88.1 % rejected on placement, 4.9 % on joint
-travel, 1.9 % on `σ_min`, 1.8 % on reach (which now includes ports the arm
-cannot retract from), 0.1 % on clearance. Clearance is the smallest of them on
+travel, 1.9 % on `σ_min`, 1.8 % on reach (which includes ports the arm cannot
+retract from), 0.1 % on clearance. Clearance is the smallest of them on
 *random* layouts, which is exactly why it had to be a constraint rather than a
 diagnostic: it binds on the layouts the optimiser is drawn to, not on the ones
-it starts from. Before it existed, 28 of the 100 converged layouts had the arm
-inside a machine at a station and **all 100** had it inside one somewhere in
-the cycle.
+it starts from. Without it, 28 of 100 converged layouts put the arm inside a
+machine at a station and **all 100** put it inside one somewhere in the cycle.
+
+Instances vary in machine footprints, heights, port positions and process
+order. The cell size, the robot and the machine count do not, so cycle times
+are comparable across instances of a split. The three splits — `test`,
+`train`, `generalization` — are drawn from disjoint seed ranges, so an
+instance used to develop the operators is never one that is reported on.
 
 ## The GA
 
-Exactly the static study's no-LS variant: population 200, 300 generations
-(60 000 evaluations), tournament `k=3`, uniform crossover `p=0.9`, mutation
-`p=0.1` per machine (Gaussian jitter + random re-orientation), elitism 10 %.
-**No local search, no RL.**
+Population 200, 300 generations (60 000 evaluations), tournament `k=3`,
+uniform crossover `p=0.9`, mutation `p=0.1` per machine (Gaussian jitter +
+random re-orientation), elitism 10 %. **No local search, no RL.** The
+chromosome is `[x, y, rotation]` per machine.
 
 One departure from a textbook GA, and it is deliberate: the **initial
 population is rejection-sampled for placement only**. Drawn uniformly, under
@@ -218,6 +217,11 @@ Seeding gives the search a foothold in the geometrically legal region; it says
 nothing about reachability or manipulability, which the GA still has to find
 for itself. `seeded_fraction` is recorded in every run so this can never
 quietly mask a broken instance.
+
+`run_ablation.py` sweeps the two operator rates full-factorially — 5 crossover
+rates × 6 mutation rates, 20 runs on each of 10 instances — with every cell of
+the grid paired on the same initial populations, so the per-seed ranking in
+its summary is meaningful.
 
 ### Placement repair (`GAConfig.repair`, off by default)
 
@@ -235,69 +239,113 @@ without optimising through it. It moves positions only — rotations come back
 exactly as drawn, which matters because rotation is what decides where the
 loading port ends up.
 
-It is **off by default**: the archived runs in `results/retract/` were produced
-without it, and the baseline is bit-identical with the flag off.
+It is **off by default**, so the baseline is the plain GA and turning the flag
+off is bit-identical to not having it.
 
-### Does the repair help? (`results/repair/`, 150 paired runs)
+## Constraint handling: wall, repair, or penalty?
 
-Yes, and it survives the control that matters. Each pair is one
-(instance, seed) with both arms handed the identical seeded population, so
-they differ only in the operator.
+The `+∞` wall, the repair, and two graded penalties are four ways to handle the
+same geometric constraints. `run_penalty_ab.py` runs all four on identical
+runs — same population, tournament, operator rates, elitism, seed and
+rejection-sampled starting population, differing only in the map from a layout
+to a score:
 
-| budget | baseline | repair | gain | pairs won | p |
-|---|---:|---:|---:|---:|---:|
-| equal evaluations (300 gens each) | 10.970 s | 10.621 s | **0.349 s** | 140/150 | 5e-6 |
-| equal compute (repair cut to 174 gens) | 10.970 s | — | **0.332 s** | 136/150 | 5e-6 |
+```
+baseline        F(x) = T(x)   if x feasible
+                     = +inf   otherwise
 
-The second row is the one to trust. At equal *evaluations* the comparison is
-rigged in the repair's favour: an infeasible layout is thrown out by the
-placement test for ~0.36 ms while a feasible one costs ~6.1 ms of IK,
-manipulability and swept-path collision — 17× more — so repair quietly draws
-1.7× the compute for the same nominal budget. Truncating it to 174 generations
-puts it at **85 % of the baseline's CPU and 58 % of its evaluations** (31 520
-vs 54 200), and it still wins by 0.33 s. `python -m arm_study.experiments.equal_cpu_check`
-reproduces that.
+repair          F(x) = T(x)   if x feasible          (an unplaceable child is
+                     = +inf   otherwise               projected onto the
+                                                      placeable set first)
 
-The mechanism is the population's feasible share, which rises from 0.59 to
-0.75 and wins **150 of 150** pairs. Traced over 324 000 children per arm
-(3 instances × 4 seeds × 150 generations), the accounting is:
+penalty_cvd     F(x) = T(x)                  if x feasible
+                     = T_inf + w·CVD(x)      otherwise            w = 1
 
-| | baseline | repair |
-|---|---:|---:|
-| placeable before repair | 58.90 % | 44.31 % |
-| placeable after repair | 58.90 % | **99.73 %** |
-| **finite fitness** | **52.76 %** | **69.39 %** |
-| `+∞` via `placement` | 41.10 % | 0.27 % |
-| `+∞` via robot constraints | 6.14 % | 30.34 % |
+penalty_count   F(x) = T(x)                            if x feasible
+                     = T_inf + w·CVD(x) + m·N(x)       otherwise
+                                                       w = 1, m = 0.05
+```
 
-Repair engages on 55.7 % of children and rescues 55.4 % of them to placeable,
-failing outright on 0.27 % — about 1 in 370, which exhaust the projection's 12
-passes and keep `+∞` with `rejection="placement"`. Corrections are small: median
-13.8 mm, p90 61.2 mm, in a 1150 mm cell.
+`CVD(x) = Σᵢ max(0, gᵢ(x))` is the constraint violation degree in metres over
+the 45 geometric inequalities (24 wall excursions, 6 keep-out shortfalls, 15
+pairwise overlap depths), and `N(x)` is the number of machines caught in at
+least one overlap. `T_inf = 1000 s` is above every attainable cycle time, so
+**cycle time stays the primary objective in every arm** — no feasible layout
+can ever lose to an infeasible one.
 
-Note what repair does **not** do. Of the children it rescues, only 54 % go on to
-score a finite fitness; the rest fail a robot constraint instead. Repair moves
-rejections downstream rather than removing them — `placement` collapses from
-41.1 % to 0.3 % while `clearance` climbs from 1.4 % to 15.1 %, because a layout
-with its machines packed tight is one the arm then cannot swing through. The
-net is +16.6 points of finite fitness, not the +41 that eliminating the
-placement rejections alone would suggest.
+That layering is also why `w` is not a free parameter to argue over in
+`penalty_cvd`. Selection is tournament, elitism is `argsort`, best-so-far is
+`min` — all rank-based — and scaling `CVD` by any positive `w` leaves all three
+unchanged. The usual objection to penalty methods, that the metres-to-seconds
+exchange rate is an unstated preference, does not apply here because the layers
+never let the two quantities trade. The ratio `m/w` in `penalty_count` **does**
+matter, since it decides whether four shallow overlaps rank above or below one
+deep one; `penalty_weights.py` checks both claims directly.
 
-The cost that was expected — repair collapsing machines onto the constraint
-boundary and killing diversity — does not appear. Position-only spread over
-3 instances × 4 seeds × 150 generations is 73.8 mm without repair against
-71.8 mm with it, a 2.7 % difference; by the last generation the repaired runs
-hold slightly *more* spread (36.1 vs 34.0 mm). Both arms fall from 377 mm to
-about 35 mm, which is the GA converging rather than the repair flattening
-anything. Note that `mean_diversity` in `summary.md` cannot show this: it
-averages per-gene standard deviation across x, y **and** rotation, and rotation
-spans 0–360 while positions span ~1.15 m, so it is essentially rotation spread
-— the one gene the repair never touches.
+### Results (`results/penalty/`, 50 matched sets = 10 instances × 5 seeds, 150 generations)
 
-## Results (10 test instances × 10 seeds = 100 runs)
+| arm | mean cycle time (s) | mean CPU (s) | feasible evaluations |
+|---|---:|---:|---:|
+| `baseline` | 11.0511 | 127.4 | 0.5215 |
+| `repair` | **10.6627** | 266.1 | 0.7157 |
+| `penalty_cvd` | 10.9888 | 173.6 | 0.5399 |
+| `penalty_count` | 10.9811 | 170.1 | 0.5363 |
 
-`results/retract/` — the current tree, produced by
-`python -m arm_study.experiments.run_ga --runs 10 --workers 12 --animate --results-dir results/retract`.
+Paired against `baseline`, signed so positive means the arm beat the wall:
+
+| arm | equal generations | p | equal CPU | p |
+|---|---:|---:|---:|---:|
+| `repair` | **+0.3884 s** | 0.0000 | **+0.3314 s** | 0.0000 |
+| `penalty_cvd` | +0.0623 s | 0.2484 | +0.0029 s | 0.9595 |
+| `penalty_count` | +0.0699 s | 0.1197 | +0.0155 s | 0.7708 |
+
+**Putting a slope on the infeasible plateau buys nothing measurable.** Neither
+penalty separates from the flat `+∞` wall at either budget, and at equal
+compute both collapse to nothing. Repair beats every other arm by about
+0.32 s at equal CPU, winning 46 of 50 pairs against each (Holm-corrected
+Wilcoxon `p ≤ 8.5e-9` across the family of three — `holm.py`).
+
+The mechanism is visible in the last column of the first table: repair raises
+the share of evaluations landing on a genuinely feasible layout from 0.52 to
+0.72, while the penalties barely move it. A penalty ranks infeasible layouts
+against each other but never *produces* a feasible one; repair does.
+
+Equal CPU matters here because the arms buy evaluations at different prices —
+a layout rejected on placement costs ~0.1 ms against ~3.3 ms for one reaching
+the kinematics — so an arm that converts cheap evaluations into expensive ones
+is flattered by an equal-generation budget. Every run records its CPU at the
+end of every generation, and the equal-compute comparison is a *slice* of that
+trace: per (instance, seed) the budget is the smallest total CPU any arm spent,
+and each arm is read at the last generation it finished inside it. No arm is
+rerun at a guessed generation count.
+
+### Does repair cost diversity? (`results/repair/`, 150 paired runs)
+
+The feared cost — repair collapsing machines onto the constraint boundary and
+killing diversity — does not appear. Position-only spread over 3 instances ×
+4 seeds × 150 generations is 73.8 mm without repair against 71.8 mm with it, a
+2.7 % difference; by the last generation the repaired runs hold slightly *more*
+spread (36.1 vs 34.0 mm). Both arms fall from 377 mm to about 35 mm, which is
+the GA converging rather than the repair flattening anything.
+
+Note that `mean_diversity` in `summary.md` cannot show this: it averages
+per-gene standard deviation across x, y **and** rotation, and rotation spans
+0–360 while positions span ~1.15 m, so it is essentially rotation spread — the
+one gene the repair never touches.
+
+Note also what repair does **not** do. Of the children it rescues to placeable,
+only 54 % go on to score a finite fitness; the rest fail a robot constraint
+instead. Repair moves rejections downstream rather than removing them —
+`placement` collapses from 41.1 % to 0.3 % while `clearance` climbs from 1.4 %
+to 15.1 %, because a layout with its machines packed tight is one the arm then
+cannot swing through. The net is +16.6 points of finite fitness, not the +41
+that eliminating the placement rejections alone would suggest. Corrections are
+small: median 13.8 mm, p90 61.2 mm, in a 1150 mm cell.
+
+## Results (`results/retract/`, 10 test instances × 10 seeds = 100 runs)
+
+Produced by `python -m arm_study.experiments.run_ga --runs 10 --workers 12
+--animate --results-dir results/retract`.
 
 All 100 runs feasible. Cycle time **10.993 ± 0.629 s**, best **9.742 s**
 (`test_3`). Median best-so-far falls 14.29 → 11.13 s, and the feasible share
@@ -309,37 +357,29 @@ bounding spheres and at 41 samples per segment rather than the 12 the evaluator
 tests at: **100/100 layouts are clear of every machine over the whole cycle**,
 worst approach +5.0 mm, median +15.0 mm.
 
-The posture is no longer unanimous — 73 runs chose **right/down** and 27
-**left/up** — which is the retract showing up in the answer: lifting to a
-common height above the cell narrows the gap between the two elbow
-configurations that the direct-move objective used to punish.
+The posture is not unanimous — 73 runs chose **right/down** and 27 **left/up**
+— which is the retract showing up in the answer: lifting to a common height
+above the cell narrows the gap between the two elbow configurations that a
+direct-move objective punishes.
 
 Realised `σ_min` at the stations averages 0.235 against a floor of 0.14
 (minimum 0.148), so the manipulability constraint is active *during* the search
 but the optimum sits comfortably inside it.
 
-`results/arm3d/` is the previous tree: same corrected robot, but direct
-point-to-point moves and no clearance criterion, so its cycle times (5.270 ±
-0.245 s) are the cost of a motion the arm cannot actually execute. It is kept
-for the comparison in the next section. `results/baseline/`,
-`results/gen500_runs20/` and `results/ga_ablation/` are older still — they
-predate the joint-travel correction as well — and none of their numbers
-describe this code.
-
-## What the clearance criterion and the retract actually bought
+## What the clearance criterion and the retract buy
 
 Measured on the **drawn solid** — every vertex of the 164-polygon robot against
 every machine box, with only the approach corridor exempt — not on the bounding
 spheres the evaluator uses. Negative means the robot is inside a machine.
 
-| | at the stations | over the whole cycle |
+| configuration | at the stations | over the whole cycle |
 |---|---|---|
 | direct moves, no clearance criterion (`results/arm3d`) | 28/100 layouts inside a machine, worst −21.7 mm | **100/100 inside**, worst −88.0 mm, median −43.5 mm |
 | direct moves + clearance at the stations | 30/30 clear, worst +8.2 mm, median +20.8 mm | **30/30 inside**, worst −86.3 mm, median −42.3 mm |
 | retract + clearance over the whole cycle (`results/retract`) | 100/100 clear, worst +5.7 mm, median +16.7 mm | **100/100 clear**, worst +5.0 mm, median +15.0 mm |
 
-The middle row is why the retract had to happen. Fixing the *stations* fixes
-the poses the criteria govern and does nothing at all for the poses in between,
+The middle row is why the retract is necessary. Fixing the *stations* fixes the
+poses the criteria govern and does nothing at all for the poses in between,
 because the problem there is the motion, not the layout: with direct
 joint-space moves the whole-cycle clearance test is not merely strict but
 **unsatisfiable** — the GA finds no feasible layout in 300 generations, on any
@@ -348,9 +388,9 @@ from one port to the next without putting an arm through something.
 
 The retract costs cycle time and nothing else: the tool has to climb 6 cm above
 the tallest machine and come back down at every station, so the cycle is about
-twice as long as the (unachievable) direct-move figure. That is the real price
-of collision-free motion in this cell, and it is now in the objective rather
-than hidden behind an off-by-default switch.
+twice as long as the (unachievable) direct-move figure of 5.270 ± 0.245 s. That
+is the real price of collision-free motion in this cell, and it is in the
+objective rather than behind an off-by-default switch.
 
 ### What is still not modelled
 
@@ -371,7 +411,7 @@ than hidden behind an off-by-default switch.
 ## Files
 
 The source is grouped by what a module is *for*: the arm, the cell, the search,
-the pictures, the studies that drive them.
+the pictures, the experiments that drive them.
 
 ```
 arm_study/
@@ -381,7 +421,7 @@ arm_study/
   viz/          pictures
   experiments/  the CLIs -- each writes one tree under results/
   tests/        the self-test
-  results/      every archived run tree, one directory each
+  results/      one directory per run tree
   _paths.py     puts the source directories on sys.path
 ```
 
@@ -397,7 +437,7 @@ arm_study/
 
 | file | what it holds |
 |---|---|
-| `geometry.py` | `Machine`, rotated-rectangle overlap (SAT), bounds, keep-out, point-to-box distance |
+| `geometry.py` | `Machine`, rotated-rectangle overlap (SAT), bounds, keep-out, point-to-box distance, `repair_placement` |
 | `problems.py` | the instance family and the three disjoint splits |
 
 ### `optimizer/` — objective and search
@@ -406,6 +446,7 @@ arm_study/
 |---|---|
 | `evaluator.py` | `CycleTimeEvaluator` — feasibility wall, the retracted tour, arm/machine clearance, objective |
 | `ga.py` | `ConfigurableGA`, `GAConfig`, seeded initial population |
+| `penalty.py` | `PenaltyEvaluator`, `CountingEvaluator` — the graded alternatives to the wall |
 
 ### `viz/` — pictures
 
@@ -421,29 +462,37 @@ arm_study/
 | `run_ga.py` | CLI: run → aggregate → figures |
 | `run_ablation.py` | CLI: the crossover × mutation ablation, run → aggregate |
 | `run_repair_ab.py` | CLI: the paired A/B of the placement repair, run → aggregate → figures |
-| `equal_cpu_check.py` | the equal-compute control for that A/B |
-| `selftest.py` | 63 checks against finite differences and closed forms |
+| `run_penalty_ab.py` | CLI: the four constraint-handling arms, run → aggregate |
+| `equal_cpu_check.py` | the equal-compute control for the repair A/B |
+| `penalty_weights.py` | checks that `w` is inert and `m/w` is not |
+| `holm.py` | family-wise correction over the arm comparisons |
+| `selftest.py` | 64 checks against finite differences and closed forms |
 
 The modules import each other by bare name (`from robot import Puma560Arm`), so
 the grouping costs nothing at the call site: every entry point calls
-`_paths.add_source_dirs()` before its first study import, and each package's
+`_paths.add_source_dirs()` before its first import, and each package's
 `__init__` does the same, so `import arm_study.viz.visualize` works on its own.
 
 ## Where the results live
 
-Every tree lives under `results/`, one directory per study:
+Every tree lives under `results/`, one directory per run:
 
-| directory | what it is |
-|---|---|
-| `results/retract/` | the current main study — retract + clearance over the whole cycle |
-| `results/arm3d/` | the previous main study — direct moves, no clearance criterion |
-| `results/baseline/` | the oldest main study; `run_ga.py` writes here by default |
-| `results/gen500_runs20/` | the same study at 500 generations × 20 seeds |
-| `results/ga_ablation/` | the archived crossover × mutation grid |
-| `results/repair/` | the paired A/B of the placement repair |
-| `results/repair_equalcpu/` | its equal-compute control |
+| directory | what it is | motion model |
+|---|---|---|
+| `results/retract/` | the main run — 10 instances × 10 seeds | retract + whole-cycle clearance |
+| `results/penalty/` | the four constraint-handling arms | retract + whole-cycle clearance |
+| `results/repair/` | the paired A/B of the placement repair | retract |
+| `results/repair_equalcpu/` | its equal-compute control | retract |
+| `results/arm3d/` | the direct-move comparison point | direct moves, no clearance criterion |
+| `results/ga_ablation/` | the crossover × mutation grid | direct moves, no clearance criterion |
+| `results/repair_equalcpu_noretract*/` | the repair A/B under direct moves | direct moves, no clearance criterion |
 
-A main-study tree holds `runs.csv`, `runs.json`, `summary.csv`, `summary.md`,
+The **motion model** column is the one to read before comparing numbers across
+trees. Direct-move trees report cycle times around 5.3 s and retract trees
+around 11 s, and the gap is the retract, not the search — see [what the
+clearance criterion and the retract buy](#what-the-clearance-criterion-and-the-retract-buy).
+
+A main-run tree holds `runs.csv`, `runs.json`, `summary.csv`, `summary.md`,
 `metadata.json`, `raw/<instance>_run<k>.json`, and per instance
 `figures/<instance>/{layout.png, trajectory.png, cycle.html}` (plus `cycle.gif`
 with `--animate`), and `figures/convergence.png`.
@@ -451,24 +500,24 @@ with `--animate`), and `figures/convergence.png`.
 The ablation tree adds `summary_per_instance.csv` and `summary.json`, and nests
 its raw runs one directory per cell of the grid:
 `raw/<combo>/<instance>_run<k>.json`. A fresh ablation writes to
-`results/ablation/` by default, leaving the archived `results/ga_ablation/`
-alone; `--results-dir` overrides it, as it does for every CLI here.
+`results/ablation/` by default; `--results-dir` overrides it, as it does for
+every CLI here. `run_ga.py` writes to `results/baseline/` by default.
 
 ## Seeing the layout in 3-D
 
 The robot is a **solid model**, not a polyline: pedestal, rotating turret,
 shoulder and elbow castings, the two arm links as flattened tapered sections,
 the wrist yoke and a two-finger gripper — about 170 polygons, lit by one
-directional light plus ambient. `kinematics/armmesh.py` builds it, and every part is
-expressed in one of the five frames `Puma560Arm.link_frames()` returns, so the
-picture and the maths are the same object: the upper arm runs from the
+directional light plus ambient. `kinematics/armmesh.py` builds it, and every
+part is expressed in one of the five frames `Puma560Arm.link_frames()` returns,
+so the picture and the maths are the same object: the upper arm runs from the
 shoulder frame's origin to `x = a2`, the forearm from the elbow frame's origin
 to `x = L3`, and the gripper fingers end exactly at `x = tool`, which is the
 point the IK solves for. Change a link length and the drawing follows.
 
 This matters beyond looks. A polyline gives the eye no occlusion cue and no
 sense of which way a link faces, so a pose reaching *away* from the camera
-looked identical to one reaching towards it, and the arm never read as an
+looks identical to one reaching towards it, and the arm never reads as an
 object standing among the machines.
 
 A single fixed isometric viewpoint is the other half of the problem, so there
@@ -479,15 +528,16 @@ are three answers:
   overlap question outright, and a scrubber for the cycle. The **⏩** button
   sets playback speed (0.25× to 16×; shift-click or `[` to slow down, `]` to
   speed up, space to pause) — a retracted cycle is ~470 sampled instants, so
-  19 s a loop at 1×, and most of the watching is done at 4× or 8×. Self-contained: no
-  libraries, no network, opens straight off the filesystem. **Every** drawable
-  — machine faces, robot facets, each tool-path segment, each port marker —
-  goes into one list sorted back to front per frame (painter's algorithm), so
-  the arm hides the machines it is in front of and is hidden by the ones it is
-  behind, from any angle. The model travels once in link-local coordinates
-  with only the four joint angles per frame; the page rebuilds the link
-  transforms itself, which is why the page is ~50 kB rather than megabytes and
-  why the arm re-lights as the camera turns. `--no-viewer` skips it.
+  19 s a loop at 1×, and most of the watching is done at 4× or 8×.
+  Self-contained: no libraries, no network, opens straight off the filesystem.
+  **Every** drawable — machine faces, robot facets, each tool-path segment,
+  each port marker — goes into one list sorted back to front per frame
+  (painter's algorithm), so the arm hides the machines it is in front of and is
+  hidden by the ones it is behind, from any angle. The model travels once in
+  link-local coordinates with only the four joint angles per frame; the page
+  rebuilds the link transforms itself, which is why the page is ~50 kB rather
+  than megabytes and why the arm re-lights as the camera turns. `--no-viewer`
+  skips it.
 * **`cycle.gif`** (`--animate`) — the camera orbits 360° while the cycle
   plays, so the parallax resolves the depths even though a GIF cannot be
   interactive. `--spin 0` restores a fixed viewpoint; `--spin 180` for half a
@@ -517,18 +567,19 @@ dwells on the stations and every lift pose exactly at the retract height ·
 direct moves sweep the arm through a machine in 199 of 199 station-clean
 layouts while the retract clears 141 of 145 · no vertex of the *drawn* robot is
 inside a machine anywhere in a feasible cycle · the collision spheres provably
-contain the drawn solid ·
-Tool pose against an independent implementation of the manufacturer's DH table
-to 4e-16 m · the angle conversions exact inverses · each joint's travel equal
-to the published travel of the Puma joint it drives · the limit test agreeing
-in both angle conventions over 30 000 configurations · a +200° shoulder
-surviving the wrap · the solid model's tool tip landing where `fk` puts it ·
-FK/IK round-trip to 2e-15 · both Jacobians against finite differences to 1e-9
-· `σ_min → 0` at exactly the two singularities the determinant predicts · the
-trapezoid never exceeds any joint's rate or acceleration limit and lands
-exactly on target · segment time matches the textbook closed form · SAT
-overlap agrees with dense point sampling · the clearance test rejects layouts
-that ignoring it accepts · feasible solutions genuinely satisfy every
-criterion · cycle time
-equals the sum of segment times plus dwells · the GA improves monotonically
-and respects its budget · runs are reproducible from their seed.
+contain the drawn solid · tool pose against an independent implementation of
+the manufacturer's DH table to 4e-16 m · the angle conversions exact inverses ·
+each joint's travel equal to the published travel of the Puma joint it drives ·
+the limit test agreeing in both angle conventions over 30 000 configurations ·
+a +200° shoulder surviving the wrap · the solid model's tool tip landing where
+`fk` puts it · FK/IK round-trip to 2e-15 · both Jacobians against finite
+differences to 1e-9 · `σ_min → 0` at exactly the two singularities the
+determinant predicts · the trapezoid never exceeds any joint's rate or
+acceleration limit and lands exactly on target · segment time matches the
+textbook closed form · SAT overlap agrees with dense point sampling · the
+clearance test rejects layouts that ignoring it accepts · the repair is
+identity on the placeable set, never touches a rotation gene, and writes to
+neither of its inputs · `keep_out_shortfall` fires exactly when `clears_circle`
+does · feasible solutions genuinely satisfy every criterion · cycle time equals
+the sum of segment times plus dwells · the GA improves monotonically and
+respects its budget · runs are reproducible from their seed.

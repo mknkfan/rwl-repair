@@ -1,14 +1,13 @@
-"""Robot-aware layout study: cycle time, reachability and manipulability.
+"""Robot-aware layout optimisation: cycle time, reachability, manipulability.
 
-Self-contained -- imports nothing from the rest of the repository.
-
-The source is grouped by use case::
+Self-contained -- only numpy and matplotlib.  The source is grouped by use
+case::
 
     kinematics/   the arm: FK, IK, Jacobians, trajectories, the solid model
     layout/       the cell: machines, placement geometry, the instance family
     optimizer/    the cycle-time objective and the GA that searches it
     viz/          figures, the GIF and the standalone HTML viewer
-    experiments/  the command-line studies; each writes one tree under results/
+    experiments/  the CLIs; each writes one tree under results/
     tests/        the self-test
 
 Importing this package puts those directories on ``sys.path``, because the

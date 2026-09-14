@@ -1,37 +1,26 @@
-"""
-The genetic algorithm: generational, elitist, no local search, no learned
-control.
+"""The genetic algorithm: generational, elitist, no local search.
 
-This is deliberately the plain static GA -- tournament selection, uniform
-crossover, Gaussian mutation with re-orientation, elitism -- at the same
-settings the flat-distance study used, so that any difference in the results
-is attributable to the objective and the constraints rather than to the search.
-There is no local search and no adaptive controller; those are the next
-experiment, not this one.
+A plain static GA -- tournament selection, uniform crossover, Gaussian
+mutation with re-orientation, elitism -- so that differences in the results
+are attributable to the objective and the constraints, not to the search.
 
-Chromosome
-----------
-``[x, y, rotation]`` per machine, exactly as in the distance study.  The
-rotation gene is not decorative here: the loading port sits off-centre on each
-machine's top face, so rotating a machine moves the point the arm has to
-reach, and with it the joint angles, the manipulability and the cycle time.
+Chromosome: ``[x, y, rotation]`` per machine.  The rotation gene is not
+decorative -- the loading port sits off-centre on each machine's top face, so
+rotating a machine moves the point the arm must reach, and with it the joint
+angles, the manipulability and the cycle time.
 
-Seeding the first generation
-----------------------------
-The one place this departs from a textbook GA.  Drawn uniformly, only about
-5 % of layouts even place without overlap, and well under 1 % clear the
-robot's constraints as well -- a random population of 200 would contain
-essentially no finite fitness, leaving selection nothing to rank and the run
-would drift until it stumbled on a feasible layout.  So the initial population
-is rejection-sampled for *placement* only: draw until the boxes fit, up to a
-cap, then keep whatever the last draw gave.
+**Seeding the first generation** is the one departure from a textbook GA.
+Drawn uniformly, only about 5 % of layouts place without overlap and well
+under 1 % clear the robot's constraints too, so a random population of 200
+would hold essentially no finite fitness and selection would have nothing to
+rank.  The initial population is therefore rejection-sampled for *placement*
+only: draw until the boxes fit, up to a cap, then keep the last draw.
 
-Note what this does and does not do.  It gives the GA a foothold in the
-geometrically legal region; it says nothing about reachability or
-manipulability, which the search still has to discover for itself.  The cap
-means a pathologically crowded instance still terminates, and
-``seeded_fraction`` in the result records how many members actually came back
-placeable, so the seeding can never quietly hide a broken instance.
+That buys a foothold in the geometrically legal region and nothing more --
+reachability and manipulability the search still has to find for itself.  The
+cap keeps a crowded instance terminating, and ``seeded_fraction`` records how
+many members really came back placeable, so seeding cannot hide a broken
+instance.
 """
 
 from __future__ import annotations
@@ -52,7 +41,7 @@ from problems import Instance
 
 @dataclass
 class GAConfig:
-    """Operator settings.  The defaults are the static study's no-LS variant."""
+    """Operator settings."""
 
     label: str = "GA (no LS)"
     population_size: int = 200
@@ -63,9 +52,8 @@ class GAConfig:
     tournament_k: int = 3
     #: Gaussian jitter width for a position gene, as a fraction of its range.
     mutation_sigma: float = 0.10
-    #: Project unplaceable children back onto the placeable set after mutation.
-    #: Off by default: the archived runs were produced without it, and turning
-    #: it on changes what the operators are being measured on.
+    #: Project unplaceable children back onto the placeable set after
+    #: mutation.  Off by default, so the baseline is the plain GA.
     repair: bool = False
     #: Slack projected past each placement constraint when repairing.
     repair_margin: float = 0.005
@@ -107,14 +95,11 @@ class RunResult:
     elapsed: np.ndarray
     feasible_fraction: np.ndarray
     #: Cumulative *process* CPU seconds at the end of each generation.
-    #:
-    #: ``elapsed`` is wall clock, which stops being a measure of work the
-    #: moment runs share a machine -- and every study here fans out over a
-    #: process pool.  Recording the CPU per generation is what turns an
-    #: equal-compute comparison into a slice of an existing trace rather than
-    #: a second set of runs at a guessed generation count.  Optional so that
-    #: an archived run reconstructed from JSON, which predates the trace, is
-    #: still a valid ``RunResult``.
+    #: ``elapsed`` is wall clock, which stops measuring work once runs share a
+    #: machine, and every experiment here fans out over a process pool.  The
+    #: per-generation CPU is what makes an equal-compute comparison a slice of
+    #: an existing trace rather than a second set of runs.  Optional, so a run
+    #: reconstructed from JSON without it is still a valid ``RunResult``.
     cpu_elapsed: Optional[np.ndarray] = None
 
     def trace_dict(self) -> Dict[str, np.ndarray]:
@@ -219,19 +204,16 @@ class ConfigurableGA:
     def repair(self, chromosome: np.ndarray) -> np.ndarray:
         """Push an unplaceable layout back onto the placeable set.
 
-        The clipping :meth:`apply_bounds` already does is a repair, but only
-        of the one constraint that is separable per gene: a position clipped
-        into the cell says nothing about the robot's column or the neighbour
-        it may be standing in.  This closes the other two, so that mutation
-        stops spending evaluations on layouts whose only fault is geometric.
+        :meth:`apply_bounds` already clips into the cell, but that is the one
+        constraint separable per gene -- it says nothing about the robot's
+        column or a neighbour the machine is standing in.  This closes the
+        other two, so mutation stops spending evaluations on layouts whose
+        only fault is geometric.
 
-        Positions only -- the rotation genes come back exactly as drawn.  A
-        chromosome that is already placeable is returned unchanged.
-
-        The input is never written to.  ``np.asarray`` would hand back the
-        caller's own buffer for a float array, and the row assignment below
-        would then edit a parent in place; the copy is what keeps this an
-        operator rather than a side effect.
+        Positions only; rotations come back exactly as drawn, and an already
+        placeable chromosome is returned unchanged.  The input is copied, not
+        viewed: ``np.asarray`` would hand back the caller's buffer and the row
+        assignment below would edit a parent in place.
         """
         if not self.config.repair:
             return chromosome
@@ -253,9 +235,8 @@ class ConfigurableGA:
     def tournament(self, population: np.ndarray, fitness: np.ndarray) -> np.ndarray:
         """Pick the best of ``tournament_k`` random members.
 
-        With ``+inf`` on the plateau of infeasible layouts, ties are common;
-        ``argmin`` takes the first, which is an unbiased choice among equals
-        because the contestants were drawn at random.
+        Ties are common on the ``+inf`` plateau; taking the first is unbiased
+        among equals, because the contestants were drawn at random.
         """
         contenders = self.rng.sample(range(population.shape[0]), self.config.tournament_k)
         best = min(contenders, key=lambda i: fitness[i])

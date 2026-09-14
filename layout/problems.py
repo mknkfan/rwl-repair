@@ -1,34 +1,23 @@
-"""
-The instance family: workcells sized to a Puma 560.
+"""The instance family: workcells sized to a Puma 560.
 
-Scale
------
-This is the one place the study departs from a purely notional layout problem.
-A Puma 560 reaches 0.864 m from the shoulder, so the cell has to be a cell a
-Puma could actually serve: the floor is 1.4 m square, machines are benchtop
+The cell is sized to the robot, which is what makes reachability a real
+constraint rather than one always or never satisfied.  A Puma 560 reaches
+0.864 m from the shoulder; the floor is 1.4 m square, machines are benchtop
 units 0.10-0.18 m across and 0.10-0.40 m tall, and the arm stands in the
-middle on a 0.67 m pedestal.  Sizing the problem to the robot is what makes
-reachability a real constraint instead of one that is either always or never
-satisfied.  The cell's corners sit at radius 0.99 m, well outside the arm's
-envelope, so the corners are genuinely unusable rather than decorative.
+middle on a 0.67 m pedestal.  The corners sit at radius 0.99 m, outside the
+envelope, so they are genuinely unusable.
 
-The consequence is worth stating plainly: only an annulus of the floor is
-usable at all.  Measured on this arm, a top-down pick is possible for port
+Only an annulus of the floor is workable: a top-down pick is possible for port
 radii of roughly 0.16-0.71 m at the lowest machine height and 0.21-0.85 m at
-the highest; requiring ``sigma_min >= 0.14`` then removes a further 19 % of
-those poses -- the outermost band, where the elbow approaches lock-out.  The
-middle is occupied by the robot's own column.  A layout that ignores any of
-this scores ``+inf``.
+the highest, and ``sigma_min >= 0.14`` removes a further 19 % of those poses
+-- the outer band where the elbow approaches lock-out.  The middle is the
+robot's own column.
 
-What varies between instances
------------------------------
-Machine footprints, heights, the port position on each machine, and the
-process order.  What does not vary: the cell size, the robot, and the number
-of machines, so cycle times are comparable across instances of a split.
-
-Splits are disjoint by construction -- they are drawn from disjoint seed
-ranges -- so an instance used to develop the operators is never one that is
-reported on.
+Instances vary in machine footprints, heights, port positions and process
+order.  The cell size, the robot and the machine count do not vary, so cycle
+times are comparable across instances of a split.  Splits are drawn from
+disjoint seed ranges, so an instance used to develop the operators is never
+one that is reported on.
 """
 
 from __future__ import annotations

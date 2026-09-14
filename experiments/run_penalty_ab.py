@@ -4,72 +4,53 @@
     python -m arm_study.experiments.run_penalty_ab --runs 5 --generations 150
     python -m arm_study.experiments.run_penalty_ab --only aggregate
 
-``run_repair_ab`` asked whether projecting an unplaceable child back onto the
-placeable set beats letting it score ``+inf``.  It compared two arms.  This
-adds the two graded penalties and compares four, because "repair beats the
-wall" is a much weaker claim than "repair beats anything else you might
-reasonably do", and a penalty is the first thing anyone would reach for.
+"Repair beats the ``+inf`` wall" is a much weaker claim than "repair beats
+anything else you might reasonably do", and a graded penalty is the first
+thing anyone would reach for.  So four arms, all the same GA -- same
+population, tournament, operator rates, elitism, seed and rejection-sampled
+starting population -- differing only in the map from a layout to a score:
 
-The arms
---------
-Every arm is the same GA -- same population, same tournament, same crossover
-and mutation rates, same elitism, same seed, same rejection-sampled starting
-population.  They differ in one function, the map from a layout to a score:
-
-``baseline``       ``F = T(x)`` if feasible else ``+inf``.  The death penalty
-                   the archived studies use.  Infeasible layouts survive in the
-                   population carrying no information about how badly they
-                   missed, so selection sees one flat plateau.
+``baseline``       ``F = T(x)`` if feasible else ``+inf``.  A death penalty:
+                   infeasible layouts survive carrying no information about
+                   how badly they missed, so selection sees a flat plateau.
 
 ``repair``         the same ``F``, but an unplaceable child is projected back
                    onto the placeable set after mutation, so the plateau is
-                   mostly not landed on in the first place.
+                   mostly not landed on at all.
 
-``penalty_cvd``    ``F = T(x)`` if feasible, else ``T_inf + w * CVD(x)`` where
+``penalty_cvd``    ``F = T(x)`` if feasible, else ``T_inf + w * CVD(x)``, with
                    ``CVD(x) = sum_i max(0, g_i(x))`` over the 45 geometric
-                   inequality constraints, in metres.  The plateau gets a
-                   slope.
+                   constraints in metres.  The plateau gets a slope.
 
-``penalty_count``  ``F = T(x)`` if feasible, else
-                   ``T_inf + w * CVD(x) + m * N(x)`` with ``N`` the number of
-                   machines caught in at least one overlap.  A discrete term on
-                   top of the continuous one, on the theory that "four machines
-                   overlapping" is a qualitatively worse layout than "two
-                   overlapping twice as deeply" even when the metres agree.
+``penalty_count``  as above plus ``m * N(x)``, ``N`` being the number of
+                   machines caught in at least one overlap -- a discrete term
+                   on the theory that four machines overlapping is worse than
+                   two overlapping twice as deeply, metres being equal.
 
-``T_inf`` is a constant above every attainable cycle time, so cycle time stays
-the primary objective in all four arms: no feasible layout can ever lose to an
-infeasible one, whatever the weights.  See :mod:`penalty` for why that makes
-``w`` immaterial to the search in ``penalty_cvd`` and why ``m/w`` is not
-immaterial in ``penalty_count``.
+``T_inf`` is above every attainable cycle time, so cycle time stays the
+primary objective in all four arms and no feasible layout can lose to an
+infeasible one.  See :mod:`penalty` for why that makes ``w`` immaterial in
+``penalty_cvd`` and ``m/w`` material in ``penalty_count``.
 
-Two budgets
------------
-Equal generations is the budget the GA literature usually reports and the one
-``run_repair_ab`` used.  It is also the budget that flatters whichever arm
-converts cheap evaluations into expensive ones, and on this problem that gap
-is large: a layout rejected by the placement test costs about 0.1 ms, one that
-reaches the kinematics about 3.3 ms.  So every run also records its CPU at the
-end of every generation, and the equal-compute comparison is a *slice* of that
-trace -- for each (instance, seed), the budget is the smallest total CPU any of
-the four arms spent, and each arm is read at the last generation it had
-finished within that budget.  No arm is rerun at a guessed generation count,
-and the realised CPU at the truncation point is reported so the reader can
-check the budget was actually equal rather than take it on trust.
+**Two budgets.** Equal generations is what the GA literature usually reports,
+and it flatters whichever arm converts cheap evaluations into expensive ones
+-- a layout rejected on placement costs about 0.1 ms against 3.3 ms for one
+reaching the kinematics.  So every run records its CPU at the end of every
+generation and the equal-compute comparison is a *slice* of that trace: per
+(instance, seed) the budget is the smallest total CPU any arm spent, and each
+arm is read at the last generation it finished inside it.  No arm is rerun at
+a guessed generation count, and the realised CPU at the cut is reported.
 
-Pairing
--------
-By (instance, seed), as before, and it is the whole point: the four arms are
-handed the identical starting population and diverge only where the scoring
-function differs.  Differences are taken within a pair and the statistics are
-over pairs, which removes the instance-to-instance spread in cycle time -- far
-the largest source of variance here -- from the comparison.  Significance is by
-paired sign-flip permutation plus Wilcoxon signed-rank, both imported from
-``run_repair_ab`` so the two studies cannot drift apart.
+**Pairing** is by (instance, seed), and it is the whole point: the four arms
+start from an identical population and diverge only where the scoring function
+differs, so differences are taken within a pair and the statistics over pairs.
+That removes the instance-to-instance spread in cycle time, far the largest
+source of variance here.  Significance is paired sign-flip permutation plus
+Wilcoxon signed-rank, both imported from ``run_repair_ab`` so the two cannot
+drift apart.
 
-Seeding: run seed ``= 42 + 100 * instance_index + run``, the rule the rest of
-the study uses, so a pair here starts from the same population as the
-corresponding run of ``run_ga`` and ``run_repair_ab``.
+Run seed ``= 42 + 100 * instance_index + run``, so a pair starts from the same
+population as the corresponding run of ``run_ga``.
 """
 
 from __future__ import annotations
@@ -137,11 +118,10 @@ def _jsonable(value: Optional[float]) -> Optional[float]:
 def _true_cycle_time(value: float) -> Optional[float]:
     """A score as a cycle time, or ``None`` where it is not one.
 
-    One rule for all four arms.  ``baseline`` and ``repair`` mark an infeasible
-    layout with ``+inf``; the penalty arms mark it by landing at or above
-    ``INFEASIBLE_BASE``.  Below that floor the score *is* the cycle time in
-    every arm, because the penalty formulation leaves a feasible layout's score
-    untouched.
+    One rule for all four arms: ``baseline`` and ``repair`` mark infeasible
+    with ``+inf``, the penalty arms by landing at or above ``INFEASIBLE_BASE``.
+    Below that floor the score *is* the cycle time everywhere, because the
+    penalty leaves a feasible layout untouched.
     """
     value = float(value)
     if not math.isfinite(value) or value >= INFEASIBLE_BASE:
