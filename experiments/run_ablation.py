@@ -6,11 +6,11 @@ seeds and initial populations ``run_ga.py`` uses -- crossover 0.1, 0.3, 0.5,
 combinations.  Each is run ``--runs`` times on every selected instance
 (default 20 runs x 10 test instances = 6000 runs in total).
 
-    python -m arm_study.experiments.run_ablation --workers 12
-    python -m arm_study.experiments.run_ablation --dry-run          # plan and cost only
-    python -m arm_study.experiments.run_ablation --workers 12 --resume
-    python -m arm_study.experiments.run_ablation --only aggregate   # rebuild the tables
-    python -m arm_study.experiments.run_ablation --repair           # sweep with the repair on
+    python -m experiments.run_ablation --workers 12
+    python -m experiments.run_ablation --dry-run          # plan and cost only
+    python -m experiments.run_ablation --workers 12 --resume
+    python -m experiments.run_ablation --only aggregate   # rebuild the tables
+    python -m experiments.run_ablation --repair           # sweep with the repair on
 
 The crossover rate is the probability a selected *pair* undergoes uniform
 crossover; the mutation rate is the probability any one *machine* (a 3-gene
@@ -618,7 +618,7 @@ def _probability(name: str):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="python -m arm_study.experiments.run_ablation",
+        prog="python -m experiments.run_ablation",
         description="Full-factorial crossover x mutation ablation for the static GA "
                     "on robot cycle time.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,

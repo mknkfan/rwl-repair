@@ -273,7 +273,12 @@ def _draw_scene_3d(
     # so this one -- now reaching up to the camera -- would be drawn last and
     # bury the tool path and port markers.  Explicit zorder instead.
     ax.computed_zorder = False
-    ax.add_collection3d(collection)
+    # autolim=False: matplotlib (seen on 3.11.1) pads polygons of unequal
+    # vertex count -- four-sided box faces next to many-sided cylinder caps --
+    # into an ``np.empty`` array and autoscales over the padding too, so the
+    # axis limits occasionally come out NaN from uninitialised memory and the
+    # figure crashes at random.  Every caller sets all three limits itself.
+    ax.add_collection3d(collection, autolim=False)
 
 
 def _draw_machines_3d(ax, machines, alpha: float = 0.92) -> None:
@@ -572,7 +577,7 @@ def export_viewer(
 
     The static figures and the GIF are baked at fixed viewpoints; this one is
     not, which is the only real cure for boxes that look like they overlap.
-    See :mod:`arm_study.viewer` for how the page draws itself.
+    See :mod:`viewer` for how the page draws itself.
     """
     if not outcome.feasible or outcome.configurations is None:
         return False

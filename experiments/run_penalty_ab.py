@@ -1,8 +1,8 @@
 """Four ways to handle the geometric constraints, on identical runs.
 
-    python -m arm_study.experiments.run_penalty_ab
-    python -m arm_study.experiments.run_penalty_ab --runs 5 --generations 150
-    python -m arm_study.experiments.run_penalty_ab --only aggregate
+    python -m experiments.run_penalty_ab
+    python -m experiments.run_penalty_ab --runs 5 --generations 150
+    python -m experiments.run_penalty_ab --only aggregate
 
 "Repair beats the ``+inf`` wall" is a much weaker claim than "repair beats
 anything else you might reasonably do", and a graded penalty is the first

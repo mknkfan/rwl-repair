@@ -1,0 +1,70 @@
+{
+  "mean_feasible": {
+    "retract_stations": {
+      "metric": "mean_feasible",
+      "arm": "retract_stations",
+      "reference": "direct_stations",
+      "n_pairs": 50,
+      "reference_mean": 0.5895242399999998,
+      "arm_mean": 0.597531,
+      "mean_gain": 0.00800676,
+      "median_gain": 0.008025000000000004,
+      "ci_low": -0.001316411499999992,
+      "ci_high": 0.017005691999999992,
+      "arm_wins": 31,
+      "reference_wins": 19,
+      "perm_p": 0.09843950780246098,
+      "wilcoxon_p": 0.07334414810032083
+    },
+    "retract_path": {
+      "metric": "mean_feasible",
+      "arm": "retract_path",
+      "reference": "direct_path",
+      "n_pairs": 50,
+      "reference_mean": 0.01498234,
+      "arm_mean": 0.5879226599999999,
+      "mean_gain": 0.5729403200000001,
+      "median_gain": 0.5769500000000001,
+      "ci_low": 0.547412369,
+      "ci_high": 0.593063788,
+      "arm_wins": 50,
+      "reference_wins": 0,
+      "perm_p": 4.9999750001249995e-06,
+      "wilcoxon_p": 7.556929455863621e-10
+    }
+  },
+  "final_feasible": {
+    "retract_stations": {
+      "metric": "final_feasible",
+      "arm": "retract_stations",
+      "reference": "direct_stations",
+      "n_pairs": 50,
+      "reference_mean": 0.6134999999999999,
+      "arm_mean": 0.6122,
+      "mean_gain": -0.0013,
+      "median_gain": -0.0050000000000000044,
+      "ci_low": -0.01920000000000001,
+      "ci_high": 0.015500000000000007,
+      "arm_wins": 22,
+      "reference_wins": 25,
+      "perm_p": 0.8945805270973645,
+      "wilcoxon_p": 0.9493442216548308
+    },
+    "retract_path": {
+      "metric": "final_feasible",
+      "arm": "retract_path",
+      "reference": "direct_path",
+      "n_pairs": 50,
+      "reference_mean": 0.018500000000000003,
+      "arm_mean": 0.6151000000000001,
+      "mean_gain": 0.5966,
+      "median_gain": 0.605,
+      "ci_low": 0.5653,
+      "ci_high": 0.6219999999999999,
+      "arm_wins": 50,
+      "reference_wins": 0,
+      "perm_p": 4.9999750001249995e-06,
+      "wilcoxon_p": 7.512618995330626e-10
+    }
+  }
+}

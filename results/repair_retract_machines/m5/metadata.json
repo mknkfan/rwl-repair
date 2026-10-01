@@ -1,0 +1,152 @@
+{
+  "split": "test",
+  "n_machines": 5,
+  "n_instances": 10,
+  "runs": 10,
+  "population_size": 200,
+  "generations": 300,
+  "budget": 60000,
+  "arms": {
+    "baseline": {
+      "label": "baseline",
+      "population_size": 200,
+      "generations": 300,
+      "crossover_rate": 0.9,
+      "mutation_rate": 0.1,
+      "elitism_rate": 0.1,
+      "tournament_k": 3,
+      "mutation_sigma": 0.1,
+      "repair": false,
+      "repair_margin": 0.005,
+      "max_evaluations": 60000,
+      "record_diversity": true,
+      "verbose": 0
+    },
+    "repair": {
+      "label": "repair",
+      "population_size": 200,
+      "generations": 300,
+      "crossover_rate": 0.9,
+      "mutation_rate": 0.1,
+      "elitism_rate": 0.1,
+      "tournament_k": 3,
+      "mutation_sigma": 0.1,
+      "repair": true,
+      "repair_margin": 0.005,
+      "max_evaluations": 60000,
+      "record_diversity": true,
+      "verbose": 0
+    }
+  },
+  "objective": {
+    "sigma_min_threshold": 0.14,
+    "dwell": 0.3,
+    "check_path": true,
+    "check_arm": true,
+    "arm_clearance": 0.005,
+    "retract": 0.06
+  },
+  "instances": {
+    "test_1": {
+      "n_machines": 5.0,
+      "footprint_area": 0.10559166271439278,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.05387329730326163,
+      "min_height": 0.15731088402423665,
+      "max_height": 0.30099914978386966,
+      "mean_height": 0.22792118099719766
+    },
+    "test_2": {
+      "n_machines": 5.0,
+      "footprint_area": 0.08124553975067461,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.041451805995242154,
+      "min_height": 0.14566132135308993,
+      "max_height": 0.3952350938796868,
+      "mean_height": 0.22094333135356653
+    },
+    "test_3": {
+      "n_machines": 5.0,
+      "footprint_area": 0.09223642490927449,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.04705940046391556,
+      "min_height": 0.18492296813930656,
+      "max_height": 0.35210494737550024,
+      "mean_height": 0.26643078600123316
+    },
+    "test_4": {
+      "n_machines": 5.0,
+      "footprint_area": 0.10199163187315047,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.052036546874056365,
+      "min_height": 0.1422100928185298,
+      "max_height": 0.39117313375362184,
+      "mean_height": 0.2631148201448267
+    },
+    "test_5": {
+      "n_machines": 5.0,
+      "footprint_area": 0.08601572792860429,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.04388557547377771,
+      "min_height": 0.14154320958957742,
+      "max_height": 0.35112783037479556,
+      "mean_height": 0.2073530412451289
+    },
+    "test_6": {
+      "n_machines": 5.0,
+      "footprint_area": 0.1033431704133228,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.05272610735373613,
+      "min_height": 0.15117625576869603,
+      "max_height": 0.3930166010359122,
+      "mean_height": 0.2559090053037358
+    },
+    "test_7": {
+      "n_machines": 5.0,
+      "footprint_area": 0.09348235861338905,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.0476950809251985,
+      "min_height": 0.18934938982275268,
+      "max_height": 0.3384816585374535,
+      "mean_height": 0.2724720859518094
+    },
+    "test_8": {
+      "n_machines": 5.0,
+      "footprint_area": 0.09120133973650983,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.04653129578393359,
+      "min_height": 0.2073971022586208,
+      "max_height": 0.3917778123249299,
+      "mean_height": 0.30122348329564935
+    },
+    "test_9": {
+      "n_machines": 5.0,
+      "footprint_area": 0.101405777563112,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.05173764161383266,
+      "min_height": 0.1599063806800488,
+      "max_height": 0.35328270650047544,
+      "mean_height": 0.2189452976813518
+    },
+    "test_10": {
+      "n_machines": 5.0,
+      "footprint_area": 0.09292425866634223,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.04741033605425624,
+      "min_height": 0.10844761312371179,
+      "max_height": 0.28269324490873804,
+      "mean_height": 0.16134159196090161
+    }
+  },
+  "python": "3.14.7",
+  "numpy": "2.5.2",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "feasibility": {
+    "both": 100,
+    "only_baseline": 0,
+    "only_repair": 0,
+    "neither": 0,
+    "n_pairs": 100,
+    "mcnemar_p": null
+  }
+}

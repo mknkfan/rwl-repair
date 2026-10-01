@@ -1,8 +1,8 @@
 """Does the placement repair actually buy anything?
 
-    python -m arm_study.experiments.run_repair_ab                    # 10 instances x 15 seeds
-    python -m arm_study.experiments.run_repair_ab --runs 5 --generations 100
-    python -m arm_study.experiments.run_repair_ab --only aggregate
+    python -m experiments.run_repair_ab                    # 10 instances x 15 seeds
+    python -m experiments.run_repair_ab --runs 5 --generations 100
+    python -m experiments.run_repair_ab --only aggregate
 
 Repair projects an unplaceable child back onto the placeable set instead of
 letting it score ``+inf``.  That is obviously good for the *placement* pass
@@ -36,13 +36,22 @@ nor symmetric.  No scipy: writing the two out keeps the dependency list at
 numpy.
 
 Run seed ``= 42 + 100 * instance_index + run``, so a pair starts from the same
-population as the corresponding run of ``run_ga``.
+population as the corresponding run of ``run_ga``.  Every run records a
+SHA-256 of the exact starting population it was handed, and the aggregate
+stage refuses to compare a pair whose two fingerprints differ -- the pairing
+is checked, not assumed.
+
+``--machines`` sets the number of machines per cell (default 6, the count
+every earlier study used).  A run stage refuses to write into a folder that
+already holds runs unless ``--resume`` is given, so a sweep can never
+overwrite an earlier one.
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import os
@@ -107,6 +116,12 @@ class Job:
     check_arm: bool = True
     arm_clearance: float = 0.005
     retract: Optional[float] = 0.06
+    n_machines: int = 6
+
+
+def population_fingerprint(population: np.ndarray) -> str:
+    """SHA-256 of the exact float64 bytes of a starting population."""
+    return hashlib.sha256(np.ascontiguousarray(population, dtype=np.float64).tobytes()).hexdigest()
 
 
 def run_json_path(output_dir: str, arm: str, instance_name: str, run: int) -> str:
@@ -115,7 +130,7 @@ def run_json_path(output_dir: str, arm: str, instance_name: str, run: int) -> st
 
 def execute(job: Job) -> Dict:
     """Run one GA and write its JSON.  Executed in a worker process."""
-    instance = build_instances(job.split)[job.instance_index]
+    instance = build_instances(job.split, job.n_machines)[job.instance_index]
     seed = run_seed_for(job.instance_index, job.run)
 
     evaluator = CycleTimeEvaluator(
@@ -145,6 +160,8 @@ def execute(job: Job) -> Dict:
         "instance_index": job.instance_index,
         "run": job.run,
         "run_seed": seed,
+        "n_machines": job.n_machines,
+        "initial_population_sha256": population_fingerprint(population),
         "cycle_time": _jsonable(result.best_fitness),
         "feasible": bool(result.feasible),
         "generations": int(result.generations),
@@ -341,16 +358,30 @@ def collect_records(output_dir: str) -> List[Dict]:
 
 
 def pair_up(records: Sequence[Dict]) -> List[Dict]:
-    """Match each baseline run to the repair run with the same seed."""
+    """Match each baseline run to the repair run with the same seed.
+
+    A pair is only a pair if both runs started from the same place, so this
+    checks it: same seed, same machine count, and -- where the runs recorded
+    one -- the same starting-population fingerprint.  Any mismatch stops the
+    aggregate rather than quietly comparing unrelated runs.
+    """
     index = {(r["arm"], r["instance"], r["run"]): r for r in records}
     pairs = []
+    broken = []
     for (arm, instance, run), record in sorted(index.items()):
         if arm != "baseline":
             continue
         other = index.get(("repair", instance, run))
-        if other is not None:
-            pairs.append({"instance": instance, "run": run,
-                          "baseline": record, "repair": other})
+        if other is None:
+            continue
+        for key in ("run_seed", "n_machines", "initial_population_sha256"):
+            if key in record and key in other and record[key] != other[key]:
+                broken.append(f"{instance} run {run}: {key} differs")
+        pairs.append({"instance": instance, "run": run,
+                      "baseline": record, "repair": other})
+    if broken:
+        raise SystemExit("unpaired runs -- the arms did not start identically:\n  "
+                         + "\n  ".join(broken))
     return pairs
 
 
@@ -484,12 +515,14 @@ def write_report(path: str, summaries: Dict, feasibility: Dict,
 
     add("# Does the placement repair help?\n")
     add(f"{feasibility['n_pairs']} paired runs "
-        f"({metadata['n_instances']} instances x {metadata['runs']} seeds), "
+        f"({metadata['n_instances']} instances x {metadata['runs']} seeds, "
+        f"{metadata.get('n_machines', 6)} machines per cell), "
         f"population {metadata['population_size']}, "
         f"{metadata['generations']} generations, "
         f"{metadata['budget']} evaluations per run.\n")
     add("Each pair is one (instance, seed): both arms start from the identical "
-        "rejection-sampled population and differ only in whether an unplaceable "
+        "rejection-sampled population (checked: the two runs' SHA-256 "
+        "fingerprints of it match) and differ only in whether an unplaceable "
         "child is projected back onto the placeable set after mutation. "
         "Differences are taken within a pair and signed so **positive means "
         "repair did better**.\n")
@@ -677,11 +710,13 @@ def _positive_int(name: str):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="python -m arm_study.experiments.run_repair_ab",
+        prog="python -m experiments.run_repair_ab",
         description="Paired A/B of the placement repair on the cycle-time objective.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--split", default="test", choices=list(ALL_SPLITS))
+    parser.add_argument("--machines", type=_positive_int("--machines"), default=6,
+                        help="machines per cell")
     parser.add_argument("--instances", type=int, nargs="+", default=None,
                         help="instance indices; default every instance of the split")
     parser.add_argument("--runs", type=_positive_int("--runs"), default=15)
@@ -712,7 +747,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--workers", type=_positive_int("--workers"), default=1)
     parser.add_argument("--results-dir", default=DEFAULT_RESULTS_DIR)
     parser.add_argument("--resume", action="store_true",
-                        help="reuse any run already written under raw/")
+                        help="reuse any run already written under raw/; without it, "
+                             "a folder that already holds runs is refused")
     parser.add_argument("--only", nargs="+", choices=list(STAGES), default=None)
     return parser
 
@@ -721,9 +757,24 @@ def main() -> None:
     args = build_parser().parse_args()
     stages = tuple(args.only) if args.only else STAGES
     output_dir = args.results_dir
+
+    # Never overwrite: a run stage into a folder that already holds runs is
+    # either a resume, said explicitly, or a mistake.
+    raw_dir = os.path.join(output_dir, "raw")
+    existing = [n for n in os.listdir(raw_dir) if n.endswith(".json")] if os.path.isdir(raw_dir) else []
+    if "run" in stages and existing and not args.resume:
+        raise SystemExit(f"{output_dir} already holds {len(existing)} runs; refusing to "
+                         "overwrite them. Pass --resume to continue that study, or choose "
+                         "another --results-dir.")
+    if existing and args.resume:
+        on_disk = {json.load(open(os.path.join(raw_dir, n), encoding="utf-8")).get("n_machines", 6)
+                   for n in existing[:20]}
+        if on_disk != {args.machines}:
+            raise SystemExit(f"{output_dir} holds runs with {sorted(on_disk)} machines, "
+                             f"not {args.machines}; refusing to mix them")
     os.makedirs(output_dir, exist_ok=True)
 
-    instances = build_instances(args.split)
+    instances = build_instances(args.split, args.machines)
     indices = args.instances if args.instances is not None else list(range(len(instances)))
     for index in indices:
         if not 0 <= index < len(instances):
@@ -745,6 +796,7 @@ def main() -> None:
 
     metadata = {
         "split": args.split,
+        "n_machines": args.machines,
         "n_instances": len(indices),
         "runs": args.runs,
         "population_size": args.population_size,
@@ -773,7 +825,8 @@ def main() -> None:
                 check_path=not args.no_path_check,
                 check_arm=not args.no_arm_check,
                 arm_clearance=args.arm_clearance,
-                retract=None if args.no_retract else args.retract)
+                retract=None if args.no_retract else args.retract,
+                n_machines=args.machines)
             for index in indices
             for run in range(args.runs)
             for arm in ARMS

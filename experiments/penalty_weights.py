@@ -1,6 +1,6 @@
 """The two weights in the penalty arms: one is inert, the other is not.
 
-    python -m arm_study.experiments.penalty_weights
+    python -m experiments.penalty_weights
 
 ``penalty.py`` claims two things about the coefficients in
 

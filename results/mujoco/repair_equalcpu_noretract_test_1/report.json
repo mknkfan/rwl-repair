@@ -1,0 +1,119 @@
+{
+  "results_tree": "repair_equalcpu_noretract",
+  "instance": "test_1",
+  "run": 14,
+  "cycle_time_planned": 4.9046,
+  "posture": "left/up",
+  "retract": null,
+  "clearance": {
+    "solid_worst_gap_mm": -39.69,
+    "solid_worst_part": "finger_b",
+    "solid_worst_machine": "M5",
+    "solid_worst_time_s": 3.9,
+    "sphere_worst_gap_mm": -51.14,
+    "per_part_mm": {
+      "turret": 300.0,
+      "shoulder": 300.0,
+      "upper_arm": 300.0,
+      "elbow": 300.0,
+      "forearm": 24.43,
+      "wrist": -31.65,
+      "flange": -6.81,
+      "palm": -19.88,
+      "finger_a": -25.56,
+      "finger_b": -39.69
+    }
+  },
+  "torque": {
+    "waist": {
+      "peak_Nm": 61.04,
+      "limit_Nm": 97.6,
+      "utilisation": 0.625,
+      "at_s": 0.28
+    },
+    "shoulder": {
+      "peak_Nm": 85.19,
+      "limit_Nm": 186.4,
+      "utilisation": 0.457,
+      "at_s": 3.841
+    },
+    "elbow": {
+      "peak_Nm": 19.76,
+      "limit_Nm": 89.4,
+      "utilisation": 0.221,
+      "at_s": 1.165
+    },
+    "wrist roll": {
+      "peak_Nm": 0.01,
+      "limit_Nm": 24.2,
+      "utilisation": 0.0,
+      "at_s": 0.434
+    },
+    "wrist pitch": {
+      "peak_Nm": 3.28,
+      "limit_Nm": 20.1,
+      "utilisation": 0.163,
+      "at_s": 3.131
+    },
+    "flange roll": {
+      "peak_Nm": 0.0,
+      "limit_Nm": 21.3,
+      "utilisation": 0.0,
+      "at_s": 2.422
+    }
+  },
+  "tracking": {
+    "bandwidth_rad_s": 25.0,
+    "friction_compensation": 1.0,
+    "tip_error_max_mm": 209.972,
+    "tip_error_rms_mm": 94.338,
+    "station_tip_error_mm": [
+      0.044,
+      60.492,
+      75.296,
+      22.97,
+      193.708,
+      6.402
+    ],
+    "joint_error_max_deg": {
+      "waist": 17.6677,
+      "shoulder": 11.5588,
+      "elbow": 6.7569,
+      "wrist roll": 3.9342,
+      "wrist pitch": 6.2795,
+      "flange roll": 0.0012
+    },
+    "saturated_fraction": {
+      "waist": 0.5002,
+      "shoulder": 0.1425,
+      "elbow": 0.0395,
+      "wrist roll": 0.0,
+      "wrist pitch": 0.0,
+      "flange roll": 0.0
+    },
+    "collision_steps": 1575,
+    "collided_pairs": [
+      [
+        "finger_a",
+        "M1"
+      ],
+      [
+        "finger_b",
+        "M3"
+      ],
+      [
+        "finger_b",
+        "M5"
+      ],
+      [
+        "finger_b",
+        "M6"
+      ],
+      [
+        "palm",
+        "M6"
+      ]
+    ],
+    "approach_contact_steps": 4376
+  }
+}

@@ -1,7 +1,7 @@
 """Holm-Bonferroni over the arm comparisons, with the resolution problem fixed.
 
-    python -m arm_study.experiments.holm
-    python -m arm_study.experiments.holm --reference repair --budget equal_cpu
+    python -m experiments.holm
+    python -m experiments.holm --reference repair --budget equal_cpu
 
 ``run_penalty_ab`` reports one p-value per comparison, which is right for a
 single claim and wrong for a table of them: the headline "repair beats

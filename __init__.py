@@ -6,6 +6,7 @@ case::
     kinematics/   the arm: FK, IK, Jacobians, trajectories, the solid model
     layout/       the cell: machines, placement geometry, the instance family
     optimizer/    the cycle-time objective and the GA that searches it
+    sim/          the cell in MuJoCo (optional; needs ``mujoco``)
     viz/          figures, the GIF and the standalone HTML viewer
     experiments/  the CLIs; each writes one tree under results/
     tests/        the self-test

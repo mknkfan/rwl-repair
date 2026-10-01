@@ -348,13 +348,8 @@ def mesh_surface_points(arm: Puma560Arm, frame: int, step: float = 0.006) -> np.
                      for poly in part.polys], step)
 
 
-# ----------------------------------------------------------------------
-# the browser's copy
-# ----------------------------------------------------------------------
-
-
 def viewer_payload(arm: Puma560Arm, decimals: int = 4) -> Dict:
-    """The solid model in a form :mod:`arm_study.viewer` can rebuild in JS.
+    """The solid model in a form :mod:`viewer` can rebuild in JS.
 
     Local polygons and colours travel once; the page applies the link
     transforms itself from the four joint angles of whichever frame it is

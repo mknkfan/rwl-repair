@@ -14,8 +14,11 @@ the highest, and ``sigma_min >= 0.14`` removes a further 19 % of those poses
 robot's own column.
 
 Instances vary in machine footprints, heights, port positions and process
-order.  The cell size, the robot and the machine count do not vary, so cycle
-times are comparable across instances of a split.  Splits are drawn from
+order.  The cell size and the robot do not vary, and within one study neither
+does the machine count, so cycle times are comparable across instances of a
+split.  The count is six unless a study asks for another
+(:func:`build_instances`); cycle times at different counts are not comparable,
+since more machines means more stations per cycle.  Splits are drawn from
 disjoint seed ranges, so an instance used to develop the operators is never
 one that is reported on.
 """
@@ -110,13 +113,25 @@ def build_instance(seed: int, name: str, split: str, index: int, n_machines: int
     )
 
 
-def build_instances(split: str = "test") -> List[Instance]:
-    """Every instance of a split, in a fixed order."""
+#: The machine count every study so far has used.
+DEFAULT_N_MACHINES = 6
+
+
+def build_instances(split: str = "test", n_machines: int = DEFAULT_N_MACHINES) -> List[Instance]:
+    """Every instance of a split, in a fixed order.
+
+    ``n_machines`` changes the cell, not the seeds: instance ``k`` is drawn
+    from the same seed at every count, so ``test_3`` with four machines and
+    with eight are two different cells, and the default of six reproduces
+    every instance the existing results were run on.
+    """
     if split not in _SPLIT_SEEDS:
         raise ValueError(f"unknown split {split!r} (expected one of {ALL_SPLITS})")
+    if n_machines < 1:
+        raise ValueError(f"n_machines must be positive, got {n_machines}")
     first, stop = _SPLIT_SEEDS[split]
     return [
-        build_instance(seed, f"{split}_{k + 1}", split, k, n_machines=6)
+        build_instance(seed, f"{split}_{k + 1}", split, k, n_machines=n_machines)
         for k, seed in enumerate(range(first, stop))
     ]
 

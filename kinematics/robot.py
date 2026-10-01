@@ -367,7 +367,7 @@ class Puma560Arm:
 
         ``q`` is a single ``(4,)`` configuration; the result is ``(5, 3)``.
         Read straight off :meth:`link_frames`, so the polyline and the solid
-        model in :mod:`arm_study.armmesh` can never drift apart.
+        model in :mod:`armmesh` can never drift apart.
         """
         frames = self.link_frames(q)
         tip = frames[4] @ np.array([self.tool, 0.0, 0.0, 1.0])

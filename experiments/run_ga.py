@@ -1,10 +1,10 @@
 """Run the GA on the cycle-time objective and write the main result tree.
 
-    python -m arm_study.experiments.run_ga                      # 10 instances x 10 seeds
-    python -m arm_study.experiments.run_ga --instances 0 --runs 3 --generations 60
-    python -m arm_study.experiments.run_ga --only aggregate figures
-    python -m arm_study.experiments.run_ga --repair             # with the placement repair
-    python -m arm_study.experiments.run_ga --animate            # also write cycle.gif
+    python -m experiments.run_ga                      # 10 instances x 10 seeds
+    python -m experiments.run_ga --instances 0 --runs 3 --generations 60
+    python -m experiments.run_ga --only aggregate figures
+    python -m experiments.run_ga --repair             # with the placement repair
+    python -m experiments.run_ga --animate            # also write cycle.gif
 
 Everything is written under ``--results-dir``::
 
@@ -14,7 +14,7 @@ Everything is written under ``--results-dir``::
     summary.csv                  per instance: mean/median/best cycle time
     summary.md                   the readable report
     metadata.json                robot, operators, instance features, environment
-    figures/<instance>/          layout.png, trajectory.png, cycle.html
+    figures/<instance>/          layout.png, trajectory.png (cycle.html with --viewer)
                                  (and cycle.gif with --animate), best run
     figures/convergence.png      pooled across every run
 
@@ -391,7 +391,7 @@ def write_report(path: str, summary: Sequence[Dict], rows: Sequence[Dict],
 def make_figures(output_dir: str, rows: Sequence[Dict], split: str,
                  sigma_threshold: float, dwell: float, animate: bool,
                  check_path: bool = True, spin: float = 360.0,
-                 no_viewer: bool = False, check_arm: bool = True,
+                 viewer: bool = False, check_arm: bool = True,
                  arm_clearance: float = 0.005, retract: float = 0.06) -> None:
     import visualize
     from ga import RunResult as _RunResult  # noqa: F401
@@ -427,7 +427,9 @@ def make_figures(output_dir: str, rows: Sequence[Dict], split: str,
                                 os.path.join(target, "layout.png"))
         visualize.figure_trajectory(instance, outcome, evaluator,
                                     os.path.join(target, "trajectory.png"))
-        if not no_viewer:
+        # Off by default: the physical check of a layout is now
+        # run_mujoco.py, so the browser viewer is only for a quick look.
+        if viewer:
             visualize.export_viewer(instance, outcome, evaluator,
                                     os.path.join(target, "cycle.html"))
         if animate:
@@ -490,7 +492,7 @@ def _positive_int(name: str):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="python -m arm_study.experiments.run_ga",
+        prog="python -m experiments.run_ga",
         description="Static GA minimising robot cycle time in a Puma 560 workcell.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -555,8 +557,9 @@ def build_parser() -> argparse.ArgumentParser:
     execution.add_argument("--spin", type=float, default=360.0,
                            help="degrees the GIF camera orbits over the animation; "
                                 "0 keeps the old fixed viewpoint")
-    execution.add_argument("--no-viewer", action="store_true",
-                           help="skip the drag-to-rotate cycle.html viewer")
+    execution.add_argument("--viewer", action="store_true",
+                           help="also write the drag-to-rotate cycle.html viewer "
+                                "(off by default; run_mujoco.py validates layouts)")
     execution.add_argument("--dry-run", action="store_true")
     return parser
 
@@ -688,7 +691,7 @@ def main() -> None:
         print("Figures:")
         make_figures(args.results_dir, rows, args.split, args.sigma_min,
                      args.dwell, args.animate, not args.no_path_check, args.spin,
-                     args.no_viewer, not args.no_arm_check, args.arm_clearance,
+                     args.viewer, not args.no_arm_check, args.arm_clearance,
                      None if args.no_retract else args.retract)
 
     print(f"\nDone in {(time.perf_counter() - started) / 60:.1f} min.")

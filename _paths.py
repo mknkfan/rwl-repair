@@ -4,7 +4,11 @@ The modules import each other by bare name (``from robot import ...``) but are
 grouped into topic directories, so those have to be on the path first.  Every
 entry point under ``experiments/`` and ``tests/`` calls :func:`add_source_dirs`
 before its first such import, and each package's ``__init__`` does too, so
-``import arm_study.viz.visualize`` works on its own.
+``import viz.visualize`` works on its own.
+
+Nothing here, or anywhere else, depends on what the repository's root folder
+is called: every path is found from this file's own location.  A clone into
+``rwl-repair/`` or ``My Study/`` behaves exactly like one into ``arm_study/``.
 """
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 #: Where the source lives, in the order a bare import should search it.
-SOURCE_DIRS = ("kinematics", "layout", "optimizer", "viz", "experiments", "tests")
+SOURCE_DIRS = ("kinematics", "layout", "optimizer", "sim", "viz", "experiments", "tests")
 
 #: Where every run writes: ``results/<name>/``.
 RESULTS_ROOT = os.path.join(ROOT, "results")

@@ -1,5 +1,5 @@
 """
-Checks the claims this study rests on.  Run:  python -m arm_study.tests.selftest
+Checks the claims this study rests on.  Run:  python -m tests.selftest
 
 Nothing here is a unit test of plumbing; each check is a property the results
 would be wrong without, verified against something independent of the code
@@ -560,11 +560,107 @@ def main() -> None:
     check("the same seed gives the same answer", first == second,
           f"{first:.9f} vs {second:.9f}")
 
+    _check_mujoco(instance)
+
     print()
     if _failures:
         print(f"{_failures} CHECK(S) FAILED")
         raise SystemExit(1)
     print("ALL CHECKS PASSED")
+
+
+def _check_mujoco(instance) -> None:
+    """The MuJoCo model is the study's robot, and its checks are sound.
+
+    Optional: the study itself needs only numpy and matplotlib, so without
+    ``mujoco`` installed this section says so and passes.
+    """
+    print("\n11. The MuJoCo model (optional):")
+    try:
+        import mujoco
+    except ImportError:
+        print("  [skip] mujoco not installed")
+        return
+    from mujoco_cell import build_cell, mesh_clearance, sample_reference
+    from puma_mjcf import reflected_armature
+    from problems import random_layout
+
+    arm = Puma560Arm(base=instance.base_xy)
+    cell = build_cell(arm, instance.machines, friction=False)
+    m, d = cell.model, cell.data
+    rng = np.random.default_rng(11)
+    q_min, q_max, _, _ = arm.limits.as_arrays()
+    worst = 0.0
+    for _ in range(300):
+        q = q_min + rng.random(4) * (q_max - q_min)
+        d.qpos[:] = arm.to_puma_angles(q)
+        mujoco.mj_kinematics(m, d)
+        worst = max(worst, float(np.abs(d.site_xpos[cell.tip_site] - arm.fk(q)[:3]).max()))
+    check("MuJoCo's tool tip is where fk puts it", worst < 1e-12, f"max {worst:.1e} m")
+    check("joint armature is the reflected motor inertia Jm G^2",
+          np.allclose(m.dof_armature, reflected_armature()))
+
+    try:
+        import roboticstoolbox as rtb
+    except ImportError:
+        print("  [skip] roboticstoolbox not installed: no independent dynamics check")
+    else:
+        puma = rtb.models.DH.Puma560().nofriction(coulomb=True, viscous=True)
+        # The one deliberate departure from the published set; see puma_mjcf.
+        puma.links[2].I = np.diag([0.066, 0.086, 0.020])
+        ideal = mujoco.MjData(cell.ideal)
+        worst = 0.0
+        for _ in range(100):
+            theta, rate, accel = (rng.uniform(-2, 2, 6), rng.uniform(-2, 2, 6),
+                                  rng.uniform(-5, 5, 6))
+            ideal.qpos[:], ideal.qvel[:], ideal.qacc[:] = theta, rate, accel
+            mujoco.mj_inverse(cell.ideal, ideal)
+            worst = max(worst, float(np.abs(ideal.qfrc_inverse
+                                            - puma.rne(theta, rate, accel)).max()))
+        check("inverse dynamics match Corke's recursive Newton-Euler", worst < 1e-3,
+              f"max {worst:.1e} N m")
+
+    # A feasible layout with the retract, to replay.
+    evaluator = CycleTimeEvaluator(instance)
+    outcome = None
+    for _ in range(4000):
+        candidate = evaluator.evaluate(evaluator.decode(random_layout(instance, rng)))
+        if candidate.feasible:
+            outcome = candidate
+            break
+    if outcome is None:
+        check("a feasible layout was found to replay", False)
+        return
+    reference = sample_reference(arm, outcome.configurations, evaluator.velocity_limit,
+                                 evaluator.acceleration_limit, evaluator.dwell,
+                                 outcome.station_index)
+    dt = reference.dt
+    # On a piece with constant acceleration the chord slope equals the mean of
+    # the end rates exactly.  Where the trapezoid switches acceleration inside
+    # a step the two part by at most (jump in q_ddot) * dt / 8 -- so that, and
+    # not zero, is the bound.  Any error in q_ddot's sign or phase breaks it.
+    rate_gap = np.abs(np.diff(reference.q, axis=0) / dt
+                      - 0.5 * (reference.qd[1:] + reference.qd[:-1]))
+    bound = np.abs(np.diff(reference.qdd, axis=0)) * dt / 8.0 + 1e-9
+    check("the sampled reference's rate is the derivative of its angle",
+          bool((rate_gap <= bound * 1.001).all()),
+          f"max {rate_gap.max():.1e} rad/s against a bound of {bound.max():.1e}")
+    accel_gap = np.abs(np.diff(reference.qd, axis=0) / dt
+                       - 0.5 * (reference.qdd[1:] + reference.qdd[:-1]))
+    switching = np.abs(np.diff(reference.qdd, axis=0)).max(axis=1) > 0
+    check("and its acceleration the derivative of its rate, between switches",
+          float(accel_gap[~switching].max()) < 1e-6,
+          f"max {accel_gap[~switching].max():.1e} rad/s^2")
+    check("the reference lasts exactly the planned cycle time",
+          abs(reference.t[-1] - outcome.cycle_time) <= dt,
+          f"{reference.t[-1]:.4f} vs {outcome.cycle_time:.4f} s")
+
+    cell = build_cell(arm, outcome.machines, outcome.waypoints)
+    solid = mesh_clearance(cell, reference, stride=25).worst_gap
+    spheres = float(evaluator.arm_clearances(
+        arm.from_puma_angles(reference.q[::25]), outcome.machines).min())
+    check("the evaluator's spheres never report more room than the solid has",
+          spheres <= solid + 1e-6, f"spheres {spheres * 1000:.1f} mm, solid {solid * 1000:.1f} mm")
 
 
 if __name__ == "__main__":

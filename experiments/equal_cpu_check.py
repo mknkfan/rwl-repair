@@ -1,6 +1,6 @@
 """The equal-compute control for the placement-repair A/B.
 
-    python -m arm_study.experiments.equal_cpu_check
+    python -m experiments.equal_cpu_check
 
 ``run_repair_ab`` gives both arms the same number of evaluations, and repair
 wins on that budget.  The budget is the problem: the placement test throws out
