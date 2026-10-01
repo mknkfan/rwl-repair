@@ -30,6 +30,7 @@ from evaluator import CycleTimeEvaluator  # noqa: E402
 from ga import ConfigurableGA, GAConfig, make_initial_population  # noqa: E402
 from geometry import (  # noqa: E402
     Machine,
+    box_frames,
     clears_circle,
     keep_out_shortfall,
     layout_is_placeable,
@@ -329,6 +330,22 @@ def main() -> None:
     check("the retract is what makes the whole cycle clear",
           kept / max(seen - caught, 1) > 0.8,
           f"{kept}/{seen - caught} station-clean layouts survive the whole cycle")
+    # The feasibility test culls spheres high above every machine before the
+    # exact distance; that cull must never change its answer.
+    arm = whole_cycle.arm
+    q_min, q_max, _, _ = arm.limits.as_arrays()
+    disagreements = hits = 0
+    for _ in range(40):
+        boxes = box_frames(whole_cycle.decode(random_layout(instance, probe)))
+        poses = probe.uniform(q_min, q_max, size=(250, 4))
+        full = whole_cycle._clearances(poses, boxes) < whole_cycle.arm_clearance
+        for pose, expected in zip(poses, full.any(axis=1)):
+            hits += int(expected)
+            disagreements += int(
+                whole_cycle._arm_hits_a_machine(pose[None, :], boxes) != expected
+            )
+    check("the culled clearance test agrees with the full one", disagreements == 0,
+          f"{disagreements} disagreements over 10000 poses, {hits} of them hits")
 
     print("\n6c. The retract puts a lift pose either side of every station:")
     scan = CycleTimeEvaluator(instance)
@@ -403,7 +420,7 @@ def main() -> None:
         # clear the boxes" but "no vertex of the robot that gets drawn is
         # inside a box it is not reaching into".  If this ever fails, the
         # figures show the arm buried in a machine.
-        from geometry import box_frames, points_over_boxes, points_to_boxes_distance
+        from geometry import points_over_boxes, points_to_boxes_distance
         boxes = box_frames(outcome.machines)
         arm_parts = build_parts(arm)
         # Sampled along every move, not only at the waypoints, because the

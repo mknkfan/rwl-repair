@@ -206,6 +206,7 @@ class CycleTimeEvaluator:
         # branch reached, not whichever happened to be tried last -- that is
         # the one that says what actually stood in the way.
         furthest = 0
+        boxes = None
         for branch in BRANCHES:
             home_q = self._home[branch]
             if home_q is None:
@@ -230,15 +231,24 @@ class CycleTimeEvaluator:
                 continue
             tour, station_index = built
 
-            boxes = box_frames(machines)
+            # Cycle time is cheap and clearance is not, so time the branch
+            # first: one that cannot beat the best branch so far cannot change
+            # the answer, and its clearance need not be tested.  Only a
+            # feasible branch sets ``best``, so the rejection reported for an
+            # infeasible layout is unaffected.
+            total = cycle_time(tour, self.velocity_limit, self.acceleration_limit,
+                               self.dwell, station_index)
+            if best is not None and total >= best.cycle_time:
+                continue
+
+            if boxes is None:
+                boxes = box_frames(machines)
             if self.check_arm and self._arm_hits_a_machine(q, boxes):
                 furthest = max(furthest, 3)
                 continue
             if self.check_path and self._path_hits_a_machine(tour, station_index, boxes):
                 furthest = max(furthest, 4)
                 continue
-            total = cycle_time(tour, self.velocity_limit, self.acceleration_limit,
-                               self.dwell, station_index)
             if best is None or total < best.cycle_time:
                 best = LayoutOutcome(
                     feasible=True,
@@ -349,10 +359,34 @@ class CycleTimeEvaluator:
     def _arm_hits_a_machine(
         self, configurations: np.ndarray, boxes: Tuple[np.ndarray, ...]
     ) -> bool:
-        """Is any part of the robot inside a machine, or too close to one?"""
-        return bool(
-            (self._clearances(configurations, boxes) < self.arm_clearance).any()
-        )
+        """Is any part of the robot inside a machine, or too close to one?
+
+        The same test as :meth:`_clearances`, with a broad phase in front.  A
+        sphere whose underside is above the tallest machine's top face by at
+        least the clearance cannot be too close to any machine -- its distance
+        to a box is at least its height above that box's top -- so only the
+        rest go through the exact box distance.  During a lifted traverse that
+        is most of the arm.  The ``1e-9`` keeps the cull clear of round-off,
+        so the answer is the one the full test gives, not an approximation.
+        """
+        centres, half, rotations = boxes
+        points = self.arm.points_along_arm(configurations, self._spheres.coefficients)
+        radii = self._spheres.radii
+        top = float((centres[:, 2] + half[:, 2]).max())
+        near = points[..., 2] - radii < top + self.arm_clearance + 1e-9
+        if not near.any():
+            return False
+        config, sphere = np.nonzero(near)
+        gap = points_to_boxes_distance(points[config, sphere], centres, half, rotations)
+        gap -= radii[sphere][:, None]
+
+        # The approach-corridor exemption, as in _clearances.
+        tool = self._spheres.is_tool[sphere]
+        if tool.any():
+            tips = self.arm.fk(configurations[config[tool]])[:, :3]
+            approaching = points_over_boxes(tips, centres, half, rotations)
+            gap[tool] = np.where(approaching, np.inf, gap[tool])
+        return bool((gap < self.arm_clearance).any())
 
     def _path_hits_a_machine(
         self, tour: np.ndarray, station_index: np.ndarray,
@@ -365,14 +399,15 @@ class CycleTimeEvaluator:
         about the middle.  This samples every segment and applies the same
         whole-arm test.  Endpoints are excluded -- they are the waypoints,
         already covered at the stations.
+
+        Every segment is sampled at once and tested in one broadcast: the
+        arrays are small, so a call per segment spends its time on numpy's
+        per-call overhead rather than on the arithmetic.
         """
         fractions = np.linspace(0.0, 1.0, self.path_samples + 2)[1:-1]
-        for k in range(tour.shape[0] - 1):
-            q0, q1 = tour[k], tour[k + 1]
-            samples = q0[None, :] + fractions[:, None] * (q1 - q0)[None, :]
-            if self._arm_hits_a_machine(samples, boxes):
-                return True
-        return False
+        q0 = tour[:-1]
+        samples = q0[:, None, :] + fractions[None, :, None] * (tour[1:] - q0)[:, None, :]
+        return self._arm_hits_a_machine(samples.reshape(-1, tour.shape[1]), boxes)
 
     # -- reporting helpers ---------------------------------------------
 
