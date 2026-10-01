@@ -136,7 +136,15 @@ class PenaltyEvaluator(CycleTimeEvaluator):
         self.n_feasible_evals = 0
 
     def fitness(self, chromosome: np.ndarray) -> float:
-        self.n_evals += 1
+        value = super().fitness(chromosome)
+        # Every infeasible score is at least the base, every feasible one
+        # below it, so this counts exactly the calls that reached a feasible
+        # layout -- cached or not.
+        if value < self.infeasible_base:
+            self.n_feasible_evals += 1
+        return value
+
+    def _score(self, chromosome: np.ndarray) -> float:
         instance = self.instance
         machines = self.decode(chromosome)
 
@@ -166,7 +174,6 @@ class PenaltyEvaluator(CycleTimeEvaluator):
                 f"floor {self.infeasible_base:.1f}s; raise INFEASIBLE_BASE or "
                 "the ranking is inverted"
             )
-        self.n_feasible_evals += 1
         return float(outcome.cycle_time)
 
 

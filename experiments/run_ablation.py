@@ -94,7 +94,10 @@ COMPACT_TRACES: Tuple[str, ...] = (
 )
 
 #: Measured cost of one evaluation of the cycle-time objective, in seconds of
-#: CPU.  Used only for the estimate printed before a run starts.
+#: CPU, at the default rates (crossover 0.9, mutation 0.1).  Used only for the
+#: estimate printed before a run starts, and roughly an upper bound on it: a
+#: repeated layout is answered from the fitness cache, and low mutation rates
+#: repeat most of them -- crossover 0.5 / mutation 0.01 runs about 6x cheaper.
 CPU_SECONDS_PER_EVALUATION: float = 3.6e-4
 
 #: Scalar columns of ``runs.csv``, in order: the main study's run fields with

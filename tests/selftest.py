@@ -390,6 +390,20 @@ def main() -> None:
     check("every feasible cycle time is strictly positive", bad == 0)
     check("the evaluation counter tracks calls", evaluator.n_evals == 3000,
           f"{evaluator.n_evals}")
+    # A repeated chromosome is answered from the cache, still counts against
+    # the budget, and gets exactly the value a fresh evaluation gives.
+    probe = np.random.default_rng(5)
+    layouts = [random_layout(instance, probe) for _ in range(3000)]
+    repeats = [evaluator.fitness(genes) for genes in layouts]
+    fresh = CycleTimeEvaluator(instance)
+    agree = all(
+        value == fresh.evaluate(fresh.decode(genes)).cycle_time
+        for genes, value in zip(layouts, repeats)
+    )
+    check("a repeated layout is answered from the cache, and counted",
+          evaluator.n_cache_hits == 3000 and evaluator.n_evals == 6000,
+          f"{evaluator.n_cache_hits} hits, {evaluator.n_evals} calls")
+    check("a cached fitness equals a fresh evaluation", agree)
 
     print("\n8. A feasible solution really satisfies every stated constraint:")
     outcome = None

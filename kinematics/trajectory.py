@@ -141,6 +141,33 @@ def plan_cycle(
     ]
 
 
+def segment_durations(
+    configurations: Sequence[np.ndarray],
+    velocity_limit: np.ndarray,
+    acceleration_limit: np.ndarray,
+) -> np.ndarray:
+    """``plan_segment(...).duration`` for every consecutive pair, in one pass.
+
+    The same arithmetic as :func:`plan_segment`, vectorised over segments:
+    :func:`cycle_time` is called for every layout the search scores, and one
+    Python call per segment was most of its cost.
+    """
+    q = np.asarray(configurations, dtype=float)
+    travel = np.abs(q[1:] - q[:-1])
+    moving = travel > _NEGLIGIBLE
+    with np.errstate(divide="ignore"):
+        rate_cap = np.where(moving, velocity_limit / travel, np.inf).min(axis=1)
+        accel_cap = np.where(moving, acceleration_limit / travel, np.inf).min(axis=1)
+    still = ~moving.any(axis=1)
+    rate_cap[still] = accel_cap[still] = 1.0  # placeholders; zeroed below
+    triangular = rate_cap**2 / accel_cap >= 1.0
+    durations = np.where(
+        triangular, 2.0 * np.sqrt(1.0 / accel_cap), 1.0 / rate_cap + rate_cap / accel_cap
+    )
+    durations[still] = 0.0
+    return durations
+
+
 def dwell_indices(
     configurations: Sequence[np.ndarray], dwell_at: Optional[Sequence[int]] = None
 ) -> np.ndarray:
@@ -170,8 +197,8 @@ def cycle_time(
     names the waypoints that are stations; leaving it out means every interior
     waypoint is one.
     """
-    segments = plan_cycle(configurations, velocity_limit, acceleration_limit)
-    moving = sum(segment.duration for segment in segments)
+    durations = segment_durations(configurations, velocity_limit, acceleration_limit)
+    moving = sum(durations.tolist())
     stations = len(dwell_indices(configurations, dwell_at))
     return float(moving + dwell * stations)
 

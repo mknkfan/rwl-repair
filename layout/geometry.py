@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -109,8 +109,14 @@ def rectangles_overlap(a: Machine, b: Machine, tolerance: float = 0.0) -> bool:
     two rectangles four axes settle it.  ``tolerance`` inflates both boxes, so
     a positive value enforces a clearance gap rather than mere non-overlap.
     """
-    corners_a, corners_b = a.corners(), b.corners()
+    return _corners_overlap(a, b, a.corners(), b.corners(), tolerance)
 
+
+def _corners_overlap(
+    a: Machine, b: Machine, corners_a: np.ndarray, corners_b: np.ndarray,
+    tolerance: float,
+) -> bool:
+    """:func:`rectangles_overlap` on corners the caller already has."""
     # A cheap disc test first: most random pairs are far apart, and this skips
     # the projections for them.
     centre_gap = math.hypot(a.x - b.x, a.y - b.y)
@@ -131,10 +137,13 @@ def rectangles_overlap(a: Machine, b: Machine, tolerance: float = 0.0) -> bool:
     return True
 
 
-def within_bounds(machine: Machine, bounds: Bounds) -> bool:
+def within_bounds(
+    machine: Machine, bounds: Bounds, corners: Optional[np.ndarray] = None
+) -> bool:
     """Does the whole footprint lie inside the cell?"""
     min_x, max_x, min_y, max_y = bounds
-    corners = machine.corners()
+    if corners is None:
+        corners = machine.corners()
     return bool(
         (corners[:, 0] >= min_x).all()
         and (corners[:, 0] <= max_x).all()
@@ -248,15 +257,17 @@ def layout_is_placeable(
     Returns ``True`` only if every machine is inside the cell, clear of the
     robot's column, and disjoint from every other machine.
     """
-    for machine in machines:
-        if not within_bounds(machine, bounds):
+    # Each machine's corners once, not once per pair it belongs to.
+    corners = [machine.corners() for machine in machines]
+    for machine, own in zip(machines, corners):
+        if not within_bounds(machine, bounds, own):
             return False
         if not clears_circle(machine, base_xy, keep_out_radius):
             return False
 
     for i in range(len(machines)):
         for j in range(i + 1, len(machines)):
-            if rectangles_overlap(machines[i], machines[j], clearance):
+            if _corners_overlap(machines[i], machines[j], corners[i], corners[j], clearance):
                 return False
     return True
 

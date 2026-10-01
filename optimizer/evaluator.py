@@ -43,7 +43,11 @@ from :mod:`trajectory`: home, every station in process order with its lift
 poses either side, back home, plus a dwell at each station.
 
 ``n_evals`` counts calls to :meth:`fitness`, so the evaluation budget is one
-currency regardless of how much work each call did.
+currency regardless of how much work each call did.  That includes calls
+answered from the fitness cache: the GA re-scores every child, and a child
+that crossover and mutation both left alone is a layout already scored, so
+:meth:`fitness` remembers each chromosome's value.  The objective is
+deterministic, so this changes the cost of a run and nothing else.
 """
 
 from __future__ import annotations
@@ -132,6 +136,11 @@ class CycleTimeEvaluator:
         self.check_arm = bool(check_arm)
         self.arm_clearance = float(arm_clearance)
         self.n_evals = 0
+        #: How many of those calls the cache answered.
+        self.n_cache_hits = 0
+        #: Chromosome bytes -> cycle time.  Never cleared: the settings it
+        #: depends on are fixed at construction.
+        self._fitness_cache: Dict[bytes, float] = {}
 
         #: Spheres bounding the drawn solid, for the clearance test.
         self._spheres = collision_spheres(self.arm)
@@ -177,12 +186,29 @@ class CycleTimeEvaluator:
 
     def reset_counter(self) -> None:
         self.n_evals = 0
+        self.n_cache_hits = 0
 
     # -- the objective -------------------------------------------------
 
     def fitness(self, chromosome: np.ndarray) -> float:
-        """Cycle time in seconds, or ``+inf`` for an infeasible layout."""
+        """Cycle time in seconds, or ``+inf`` for an infeasible layout.
+
+        Counts the call and serves repeats from the cache; subclasses that
+        score differently override :meth:`_score`, so every arm of a
+        comparison is cached alike and its CPU stays comparable.
+        """
         self.n_evals += 1
+        key = np.asarray(chromosome, dtype=float).tobytes()
+        value = self._fitness_cache.get(key)
+        if value is not None:
+            self.n_cache_hits += 1
+            return value
+        value = self._score(chromosome)
+        self._fitness_cache[key] = value
+        return value
+
+    def _score(self, chromosome: np.ndarray) -> float:
+        """The uncached fitness."""
         return self.evaluate(self.decode(chromosome)).cycle_time
 
     def evaluate(self, machines: Sequence[Machine]) -> LayoutOutcome:
