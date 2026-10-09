@@ -1,0 +1,155 @@
+{
+  "split": "test",
+  "n_machines": 7,
+  "instances": [
+    {
+      "n_machines": 7.0,
+      "footprint_area": 0.14599725841465439,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.07448839715033388,
+      "min_height": 0.15731088402423665,
+      "max_height": 0.3924291342121501,
+      "mean_height": 0.2599363492619821,
+      "name": "test_1"
+    },
+    {
+      "n_machines": 7.0,
+      "footprint_area": 0.10849751357329182,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.05535587427208767,
+      "min_height": 0.14566132135308993,
+      "max_height": 0.3952350938796868,
+      "mean_height": 0.23692447937104338,
+      "name": "test_2"
+    },
+    {
+      "n_machines": 7.0,
+      "footprint_area": 0.11504671254790558,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.058697302320359995,
+      "min_height": 0.17567693425993483,
+      "max_height": 0.35210494737550024,
+      "mean_height": 0.2647091272190475,
+      "name": "test_3"
+    },
+    {
+      "n_machines": 7.0,
+      "footprint_area": 0.135682223623995,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.06922562429795664,
+      "min_height": 0.1422100928185298,
+      "max_height": 0.39117313375362184,
+      "mean_height": 0.2807163173817097,
+      "name": "test_4"
+    },
+    {
+      "n_machines": 7.0,
+      "footprint_area": 0.1438434319002507,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.07338950607155649,
+      "min_height": 0.14154320958957742,
+      "max_height": 0.35112783037479556,
+      "mean_height": 0.24142686188679433,
+      "name": "test_5"
+    },
+    {
+      "n_machines": 7.0,
+      "footprint_area": 0.15865831435938893,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.0809481195711168,
+      "min_height": 0.15001426326724424,
+      "max_height": 0.3930166010359122,
+      "mean_height": 0.24050523949824734,
+      "name": "test_6"
+    },
+    {
+      "n_machines": 7.0,
+      "footprint_area": 0.13248342065052038,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.06759358196455122,
+      "min_height": 0.14203337571722383,
+      "max_height": 0.3661909924966361,
+      "mean_height": 0.2672263997104153,
+      "name": "test_7"
+    },
+    {
+      "n_machines": 7.0,
+      "footprint_area": 0.1371057217836981,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.06995189886923373,
+      "min_height": 0.16854833258922236,
+      "max_height": 0.3917778123249299,
+      "mean_height": 0.28070600145039176,
+      "name": "test_8"
+    },
+    {
+      "n_machines": 7.0,
+      "footprint_area": 0.1440857073771492,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.0735131160087496,
+      "min_height": 0.1599063806800488,
+      "max_height": 0.35328270650047544,
+      "mean_height": 0.22979059710058194,
+      "name": "test_9"
+    },
+    {
+      "n_machines": 7.0,
+      "footprint_area": 0.13236881806765213,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.0675351112590062,
+      "min_height": 0.10342984052486513,
+      "max_height": 0.28269324490873804,
+      "mean_height": 0.1652381151215984,
+      "name": "test_10"
+    }
+  ],
+  "arms": [
+    {
+      "arm": "baseline",
+      "repair": false,
+      "violation_weight": 0.0,
+      "overlap_count_weight": 0.0
+    },
+    {
+      "arm": "repair",
+      "repair": true,
+      "violation_weight": 0.0,
+      "overlap_count_weight": 0.0
+    },
+    {
+      "arm": "penalty_cvd",
+      "repair": false,
+      "violation_weight": 1.0,
+      "overlap_count_weight": 0.0
+    },
+    {
+      "arm": "penalty_count",
+      "repair": false,
+      "violation_weight": 1.0,
+      "overlap_count_weight": 0.05
+    }
+  ],
+  "infeasible_base": 1000.0,
+  "config": {
+    "label": "GA (no LS)",
+    "population_size": 200,
+    "generations": 300,
+    "crossover_rate": 0.8,
+    "mutation_rate": 0.2,
+    "elitism_rate": 0.1,
+    "tournament_k": 3,
+    "mutation_sigma": 0.1,
+    "repair": false,
+    "repair_margin": 0.005,
+    "max_evaluations": 60000,
+    "record_diversity": true,
+    "verbose": 0
+  },
+  "runs": 20,
+  "retract": 0.06,
+  "sigma_min_threshold": 0.14,
+  "dwell": 0.3,
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.14.7",
+  "numpy": "2.5.2"
+}

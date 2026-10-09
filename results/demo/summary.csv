@@ -1,0 +1,2 @@
+instance,instance_index,n_runs,n_feasible,cycle_time_mean,cycle_time_median,cycle_time_sd,cycle_time_min,cycle_time_max,min_sigma_mean,min_sigma_median,min_sigma_sd,min_sigma_min,min_sigma_max,cpu_time_mean,cpu_time_median,cpu_time_sd,cpu_time_min,cpu_time_max,evaluations_mean
+test_3,2,3,3,10.142927226164046,10.054540933983589,0.45122615127061666,9.742434036612583,10.631806707895969,0.1876030731211961,0.18168987272961412,0.010404901252410375,0.18150221694562343,0.19961712968835083,165.21354166666666,136.109375,70.51770460963303,113.90625,245.625,54200.0

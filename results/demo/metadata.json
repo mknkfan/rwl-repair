@@ -1,0 +1,120 @@
+{
+  "split": "test",
+  "instance_indices": [
+    2
+  ],
+  "runs_per_instance": 3,
+  "n_runs": 3,
+  "seed_rule": "run_seed = 42 + 100 * instance_index + run",
+  "objective": "cycle time (s), minimised; infeasible = +inf -> null",
+  "ga_config": {
+    "label": "GA (no LS)",
+    "population_size": 200,
+    "generations": 300,
+    "crossover_rate": 0.9,
+    "mutation_rate": 0.1,
+    "elitism_rate": 0.1,
+    "tournament_k": 3,
+    "mutation_sigma": 0.1,
+    "repair": false,
+    "repair_margin": 0.005,
+    "max_evaluations": 60000,
+    "record_diversity": true,
+    "verbose": 0
+  },
+  "sigma_min_threshold": 0.14,
+  "dwell": 0.3,
+  "check_path": true,
+  "retract": 0.06,
+  "check_arm": true,
+  "arm_clearance": 0.005,
+  "robot": {
+    "model": "4-DOF arm on Puma 560 link geometry (waist, shoulder, elbow, wrist pitch; roll joints locked)",
+    "d1": 0.6718,
+    "a2": 0.4318,
+    "a3": 0.0203,
+    "d3": 0.15005,
+    "d4": 0.4318,
+    "tool": 0.1,
+    "L3": 0.4322769135635166,
+    "max_reach": 0.8640769135635167,
+    "min_reach": 0.3493265567062471,
+    "joint_travel_deg": [
+      [
+        -160.0,
+        -45.0,
+        -137.69163633706378,
+        -97.30836366293622
+      ],
+      [
+        160.0,
+        225.0,
+        132.30836366293622,
+        102.69163633706378
+      ]
+    ],
+    "puma_joints": [
+      0,
+      1,
+      2,
+      4
+    ],
+    "puma_travel_deg": [
+      [
+        -160.0,
+        160.0
+      ],
+      [
+        -45.0,
+        225.0
+      ],
+      [
+        -225.0,
+        45.0
+      ],
+      [
+        -110.0,
+        170.0
+      ],
+      [
+        -100.0,
+        100.0
+      ],
+      [
+        -266.0,
+        266.0
+      ]
+    ],
+    "joint_velocity_limits": [
+      1.7453292519943295,
+      1.6580627893946132,
+      1.7453292519943295,
+      2.2689280275926285
+    ],
+    "joint_acceleration_limits": [
+      6.0,
+      6.0,
+      6.0,
+      10.0
+    ]
+  },
+  "instances": {
+    "test_3": {
+      "n_machines": 6.0,
+      "footprint_area": 0.10251617592327036,
+      "floor_area": 1.9599999999999997,
+      "occupancy": 0.05230417138942366,
+      "min_height": 0.18492296813930656,
+      "max_height": 0.35210494737550024,
+      "mean_height": 0.2795478260455662
+    }
+  },
+  "environment": {
+    "python": "3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "numpy": "2.5.2",
+    "cpu_count": 24,
+    "workers": 1,
+    "timestamp": "2026-10-01 10:29:23"
+  }
+}

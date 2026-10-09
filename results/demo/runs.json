@@ -1,0 +1,47 @@
+[
+ {
+  "instance": "test_3",
+  "instance_index": 2,
+  "run": 0,
+  "run_seed": 242,
+  "cycle_time": 10.631806707895969,
+  "feasible": true,
+  "branch": "left/up",
+  "min_sigma": 0.18168987272961412,
+  "generations": 300,
+  "evaluations": 54200,
+  "execution_time": 249.1978298999602,
+  "cpu_time": 245.625,
+  "seeded_fraction": 1.0
+ },
+ {
+  "instance": "test_3",
+  "instance_index": 2,
+  "run": 1,
+  "run_seed": 243,
+  "cycle_time": 9.742434036612583,
+  "feasible": true,
+  "branch": "right/down",
+  "min_sigma": 0.18150221694562343,
+  "generations": 300,
+  "evaluations": 54200,
+  "execution_time": 114.9192426999798,
+  "cpu_time": 113.90625,
+  "seeded_fraction": 1.0
+ },
+ {
+  "instance": "test_3",
+  "instance_index": 2,
+  "run": 2,
+  "run_seed": 244,
+  "cycle_time": 10.054540933983589,
+  "feasible": true,
+  "branch": "right/down",
+  "min_sigma": 0.19961712968835083,
+  "generations": 300,
+  "evaluations": 54200,
+  "execution_time": 141.43054349999875,
+  "cpu_time": 136.109375,
+  "seeded_fraction": 1.0
+ }
+]
