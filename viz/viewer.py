@@ -60,6 +60,7 @@ _TEMPLATE = """<!doctype html>
   button:hover { background:#36495f; }
   input[type=range] { flex:1; min-width:150px; }
   .hint { color:#8a94a0; font-size:12px; }
+  header .bad { color:#ff8a7a; margin-left:14px; }
 </style>
 <div id="wrap">
   <header><b id="title"></b><span id="sub"></span></header>
@@ -80,6 +81,16 @@ var cv = document.getElementById('c'), cx = cv.getContext('2d');
 document.getElementById('title').textContent =
   S.name + ' \\u2014 cycle ' + S.cycle.toFixed(3) + ' s';
 document.getElementById('sub').textContent = 'posture ' + S.posture;
+if (S.note) {
+  var noteEl = document.createElement('span');
+  noteEl.className = 'bad'; noteEl.textContent = S.note;
+  document.querySelector('header').appendChild(noteEl);
+}
+/* Optional sigma overlay: per-instant sigma_min of the position Jacobian,
+   which station (process order, -1 while moving) each instant is held at,
+   and which ports (machine order) fail the threshold. */
+var SIG = S.sigma || null, BAD = {};
+(S.badPorts || []).forEach(function (k) { BAD[k] = true; });
 
 var az = -58*Math.PI/180, el = 22*Math.PI/180, zoom = 1, panX = 0, panY = 0;
 var frame = 0, playing = true, dragging = false, lastX = 0, lastY = 0, shift = false;
@@ -213,10 +224,10 @@ function draw() {
   }
 
   for (i = 0; i < S.boxes.length; i++) {
-    var boxi = S.boxes[i];
+    var boxi = S.boxes[i], rgb = BAD[i] ? [176, 84, 76] : MACHINE_RGB;
     for (var f = 0; f < boxi.faces.length; f++) {
       var face = boxi.faces[f];
-      pushPoly(face, litFill(MACHINE_RGB, face[0], face[1], face[2]), '#1b2734',
+      pushPoly(face, litFill(rgb, face[0], face[1], face[2]), '#1b2734',
                f === 0 ? (boxi.name + ' #' + boxi.order) : null);
     }
   }
@@ -241,9 +252,9 @@ function draw() {
     var p0 = toScreen(S.tool[i-1], v), p1 = toScreen(S.tool[i], v);
     items.push({kind: 1, pts: [p0, p1], depth: (p0[2] + p1[2])/2});
   }
-  S.ports.forEach(function (pt) {
+  S.ports.forEach(function (pt, k) {
     var sp = toScreen(pt, v);
-    items.push({kind: 2, pts: [sp], depth: sp[2]});
+    items.push({kind: 2, pts: [sp], depth: sp[2], bad: !!BAD[k]});
   });
 
   items.sort(function (a, b) { return a.depth - b.depth; });
@@ -257,6 +268,10 @@ function draw() {
     if (it.kind === 2) {
       cx.fillStyle = '#e05252';
       cx.beginPath(); cx.arc(it.pts[0][0], it.pts[0][1], 3.4, 0, Math.PI*2); cx.fill();
+      if (it.bad) {
+        cx.strokeStyle = '#ffb347'; cx.lineWidth = 2;
+        cx.beginPath(); cx.arc(it.pts[0][0], it.pts[0][1], 9, 0, Math.PI*2); cx.stroke();
+      }
       return;
     }
     cx.fillStyle = it.fill;
@@ -272,9 +287,72 @@ function draw() {
     }
   });
 
+  if (SIG) { drawSigma(r); }
+
   document.getElementById('clock').textContent =
     't = ' + S.t[frame].toFixed(3) + ' s   |   az ' + (az*180/Math.PI).toFixed(0) +
-    '\\u00b0, elev ' + (el*180/Math.PI).toFixed(0) + '\\u00b0';
+    '\\u00b0, elev ' + (el*180/Math.PI).toFixed(0) + '\\u00b0' +
+    (SIG ? '   |   \\u03c3_min ' + SIG[frame].toFixed(4) + ' m/rad' : '');
+}
+
+/* sigma_min against time along the bottom of the canvas.  The line is every
+   instant; the dots are the stations, the only instants the threshold is
+   imposed at (a lift pose or a traverse is passed through, not worked at). */
+function drawSigma(r) {
+  var W = Math.min(r.width - 24, 720), H = 110, X = 12, Y = r.height - H - 12;
+  var T = S.t[S.t.length - 1], top = 0, i;
+  for (i = 0; i < SIG.length; i++) { top = Math.max(top, SIG[i]); }
+  top = Math.max(top, S.sigmaThreshold) * 1.1;
+  var px = function (t) { return X + 34 + (W - 44) * t / T; };
+  var py = function (s) { return Y + H - 18 - (H - 30) * s / top; };
+
+  cx.fillStyle = 'rgba(16,19,23,0.86)'; cx.strokeStyle = '#2a3038'; cx.lineWidth = 1;
+  cx.fillRect(X, Y, W, H); cx.strokeRect(X, Y, W, H);
+
+  cx.fillStyle = 'rgba(224,82,82,0.13)';
+  cx.fillRect(px(0), py(S.sigmaThreshold), px(T) - px(0), py(0) - py(S.sigmaThreshold));
+  cx.strokeStyle = '#e05252'; cx.setLineDash([5, 4]);
+  cx.beginPath(); cx.moveTo(px(0), py(S.sigmaThreshold)); cx.lineTo(px(T), py(S.sigmaThreshold));
+  cx.stroke(); cx.setLineDash([]);
+
+  cx.strokeStyle = '#8fb3e0'; cx.lineWidth = 1.4; cx.beginPath();
+  for (i = 0; i < SIG.length; i++) {
+    if (i) { cx.lineTo(px(S.t[i]), py(SIG[i])); } else { cx.moveTo(px(S.t[i]), py(SIG[i])); }
+  }
+  cx.stroke();
+
+  var seen = {};
+  for (i = 0; i < SIG.length; i++) {
+    var k = S.station[i];
+    if (k < 0 || seen[k]) { continue; }
+    seen[k] = true;
+    var low = SIG[i] < S.sigmaThreshold;
+    cx.fillStyle = low ? '#ffb347' : '#6fcf97';
+    cx.beginPath(); cx.arc(px(S.t[i]), py(SIG[i]), low ? 5 : 3.5, 0, Math.PI*2); cx.fill();
+    cx.font = '10px system-ui'; cx.textAlign = 'center';
+    cx.fillText('S' + (k + 1), px(S.t[i]), py(SIG[i]) - 8);
+  }
+
+  cx.strokeStyle = '#e8ecf1'; cx.lineWidth = 1;
+  cx.beginPath(); cx.moveTo(px(S.t[frame]), Y + 6); cx.lineTo(px(S.t[frame]), Y + H - 18); cx.stroke();
+
+  cx.fillStyle = '#9aa5b1'; cx.font = '10px system-ui'; cx.textAlign = 'right';
+  cx.fillText(top.toFixed(2), X + 30, py(top) + 4);
+  cx.fillText(S.sigmaThreshold.toFixed(2), X + 30, py(S.sigmaThreshold) + 4);
+  cx.fillText('0', X + 30, py(0) + 4);
+  cx.textAlign = 'left';
+  cx.fillText('\\u03c3_min (m/rad) over the cycle  \\u2014  dots = stations (where it is required), dashed = threshold',
+              X + 36, Y + H - 5);
+
+  var here = S.station[frame];
+  if (here >= 0 && SIG[frame] < S.sigmaThreshold) {
+    var msg = 'S' + (here + 1) + ': \\u03c3_min ' + SIG[frame].toFixed(4) + ' < ' +
+              S.sigmaThreshold.toFixed(2) + ' m/rad \\u2014 ' + (S.badReason || 'below threshold');
+    cx.font = 'bold 13px system-ui'; cx.textAlign = 'left';
+    var w = cx.measureText(msg).width + 20;
+    cx.fillStyle = 'rgba(120,30,24,0.92)'; cx.fillRect(12, 12, w, 28);
+    cx.fillStyle = '#ffe0d6'; cx.fillText(msg, 22, 31);
+  }
 }
 
 cv.addEventListener('pointerdown', function (e) {
@@ -347,7 +425,7 @@ window.addEventListener('keydown', function (e) {
 });
 setSpeed(speedIndex);
 
-var last = 0;
+var last = 0, stoppedAtBad = false;
 function tick(now) {
   if (!last || !playing) {
     last = now;
@@ -360,7 +438,20 @@ function tick(now) {
          a step carries into the next tick, so the playback rate stays exactly
          the requested multiple instead of drifting with the frame rate. */
       last += advance * step;
-      frame = (frame + advance) % S.q.length;
+      var next = (frame + advance) % S.q.length;
+      /* With a sigma overlay, stop once on the first instant at a failing
+         station: the arm is held there for a dwell, a fraction of a second
+         at 1x, which is too short to read the banner. */
+      if (SIG && !stoppedAtBad) {
+        for (var n = frame + 1; n <= frame + advance && n < S.q.length; n++) {
+          if (S.station[n] >= 0 && SIG[n] < S.sigmaThreshold) {
+            next = n; stoppedAtBad = true; playing = false;
+            document.getElementById('play').textContent = 'Play';
+            break;
+          }
+        }
+      }
+      frame = next;
       scrub.value = frame;
       draw();
     }

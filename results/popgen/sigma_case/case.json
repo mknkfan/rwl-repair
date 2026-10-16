@@ -1,0 +1,75 @@
+{
+  "parent": "popgen/p100/raw/baseline_test_9_run0.json",
+  "instance": "test_9",
+  "mutation_seed": 19,
+  "mutated_machine": 4,
+  "gene_before": [
+    0.613248,
+    0.355055,
+    279.586106
+  ],
+  "gene_after": [
+    0.613248,
+    0.40606,
+    21.617497
+  ],
+  "sigma_min_threshold": 0.14,
+  "rejection": "sigma_min",
+  "parent_cycle_time": 11.6005,
+  "parent_sigma_min_per_station": [
+    0.272077,
+    0.201432,
+    0.148711,
+    0.216511,
+    0.193302,
+    0.224288
+  ],
+  "unconditioned_cycle_time": 12.1175,
+  "posture": "right/down",
+  "sigma_min_per_station": [
+    0.272077,
+    0.201432,
+    0.013626,
+    0.216511,
+    0.193302,
+    0.224288
+  ],
+  "failing_stations": [
+    3
+  ],
+  "failing_machines": [
+    4
+  ],
+  "worst_station_q_deg": [
+    44.099,
+    -26.437,
+    -4.102,
+    -59.461
+  ],
+  "worst_station_sigma_by_posture": {
+    "right/up": 0.0136,
+    "right/down": 0.0136,
+    "left/up": 0.0136,
+    "left/down": 0.0136
+  },
+  "chromosome": [
+    0.406193,
+    0.035528,
+    315.632017,
+    0.44898,
+    0.523438,
+    145.08837,
+    0.303155,
+    0.616682,
+    243.189556,
+    0.613248,
+    0.40606,
+    21.617497,
+    0.137092,
+    0.592824,
+    4.891385,
+    0.574069,
+    0.166905,
+    347.869629
+  ]
+}

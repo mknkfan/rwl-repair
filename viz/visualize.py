@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import math
 import os
-from typing import List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 
 import matplotlib
 
@@ -572,12 +572,17 @@ def export_viewer(
     evaluator: CycleTimeEvaluator,
     path: str,
     samples_per_segment: int = 24,
+    extras: Optional[Callable[[np.ndarray, np.ndarray], dict]] = None,
 ) -> bool:
     """Write ``cycle.html`` -- drag to orbit, scroll to zoom, scrub the cycle.
 
     The static figures and the GIF are baked at fixed viewpoints; this one is
     not, which is the only real cure for boxes that look like they overlap.
     See :mod:`viewer` for how the page draws itself.
+
+    ``extras(t, q)`` is called with the sampled cycle and its keys are merged
+    into the scene, for overlays the page draws only when present (the
+    ``sigma`` strip, say).
     """
     if not outcome.feasible or outcome.configurations is None:
         return False
@@ -614,6 +619,8 @@ def export_viewer(
         "t": np.asarray(t, dtype=float).round(4).tolist(),
         "ceiling": round(_scene_ceiling(arm, q), 4),
     }
+    if extras is not None:
+        scene.update(extras(t, q))
     write_viewer(scene, path, f"{instance.name} cycle viewer")
     print(f"  wrote {path}")
     return True
