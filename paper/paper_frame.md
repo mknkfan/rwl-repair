@@ -108,7 +108,7 @@ Four paragraphs of three or four sentences each. End each one with how this pape
 
 ## 3 Methodology
 
-About 1.5 pages in six subsections. Every constant below comes from the code (`optimizer/evaluator.py`, `optimizer/penalty.py`, `layout/geometry.py`).
+About 1.5 pages in seven subsections. Every constant below comes from the code (`optimizer/evaluator.py`, `optimizer/penalty.py`, `layout/geometry.py`).
 
 **3.1 Problem formulation.** A cell holds n machines (n = 4–8) around a fixed Puma 560 at the origin. The decision vector is x = (xᵢ, yᵢ, θᵢ) for i = 1..n, with each machine's centre inside a 1.4 m × 1.4 m cell. The tool visits every machine's loading port in a fixed process order, starting and ending at home. The objective is the cycle time:
 
@@ -130,19 +130,20 @@ Each move is a coordinated joint-space trapezoidal profile limited by the Puma's
 
 **3.4 GA.** Real-coded GA with tournament selection (k = 3), uniform crossover (p = 0.8), per-machine Gaussian mutation (p = 0.2, σ = 0.1 of the gene range, rotation redrawn), and 10 % elitism. Default population is 200 and default generations 300. Fitness is cached by chromosome, and every call counts toward the evaluation budget, including cache hits.
 
-**3.5 Constraint handlers.**
+**3.5 Placement repair (proposed).** After mutation, a child that fails the placement criterion (§3.2, item 1) is moved back onto the placeable set before it is evaluated. The repaired layout replaces the child in the population (Lamarckian). Each pass makes three moves: (i) clip every centre into the cell, inset by the footprint half-diagonal; (ii) push any machine that encroaches on the robot column radially outward by its shortfall; (iii) for every overlapping pair, find the separating axis needing the smallest push (the minimum translation from the separating-axis test) and move both machines apart by half that push each. The moves interact, since pushing a machine off the column can push it into a neighbour, so the pass repeats until nothing moves, up to 12 passes. Each constraint is cleared with an extra 5 mm, because a layout sitting exactly on a constraint boundary fails later checks on rounding error. Repair has three properties. It leaves a layout that is already placeable unchanged. It changes positions only, never rotations, so the gene that decides where each loading port faces stays as mutation drew it. It never evaluates the cycle time, so it is a projection, not a local search. It does not grade reach, σ_min or clearance; those are left to the feasibility test. The pass limit means a crowded layout can come back still unplaceable, and the feasibility test then rejects it. Show F3a here: one repair round on a mutated child.
+
+**3.6 Baseline constraint handlers.**
 
 - *Wall (baseline):* any infeasible layout scores +inf.
-- *Repair:* after mutation, an unplaceable child is projected back onto the placeable set by clipping into the cell, pushing off the robot column, and separating overlapping pairs, repeated until placeable (margin 5 mm). It changes positions only, never rotations, and it does not touch reach, σ_min or clearance. Show F3a here.
 - *Layered penalties:* the formula below, with CVD summed over the 4n + n + n(n−1)/2 placement constraints (45 for n = 6) and N the number of machines in an overlap; `penalty_cvd` uses m = 0.
 
 ```latex
 F(x) = \begin{cases} T(x) & x \in \mathcal{F} \\ T_\infty + w\,\mathrm{CVD}(x) + m\,N(x) & \text{otherwise} \end{cases}, \quad T_\infty = 1000\,\text{s}
 ```
 
-State that w has no effect under rank-based selection and that a placeable but unreachable layout scores exactly T∞, so the penalties grade only what repair repairs.
+State that w has no effect under rank-based selection and that a placeable but unreachable layout scores exactly T∞, so the penalties grade only what repair fixes (§3.5).
 
-**3.6 Experimental protocol.**
+**3.7 Experimental protocol.**
 
 - 10 test instances × 10–20 seeds; run seed = 42 + 100 × instance + run.
 - All arms of a set start from the identical rejection-sampled population, checked by fingerprint.
@@ -160,7 +161,7 @@ About 2 pages in seven short subsections. Each one opens with its finding and it
 
 **4.3 Equal evaluations (F1, left panel).** At 40 000 evaluations repair still leads by about 0.33 s. The grid also gives a sizing rule: at 5 000 evaluations, P = 50–100 beats P = 200 by about 0.24–0.39 s, while from 20 000 evaluations up, P = 200 is as good as or better than the alternatives. One sentence, with details in supplementary.
 
-**4.4 Equal CPU (F1, right panel; T1 rows 3–4).** This is the honest comparison, and the margin shrinks to about 0.08 s at 20 s and 0.13 s at 40 s per run. The mechanism: a placement rejection costs about 0.36 ms and a full kinematic evaluation about 6.1 ms, and repair turns cheap rejections into expensive evaluations (feasible share 0.58 → 0.74). Per run, repair spends about 6.5× the wall's CPU at equal generations. Report CPU seconds as the budget and give wall-clock time once for the hardware. The raw JSON records both (`cpu_time`, `execution_time`).
+**4.4 Equal CPU (F1, right panel; T1 rows 3–4).** This is the honest comparison, and the margin shrinks to about 0.08 s at 20 s and 0.13 s at 40 s per run. The mechanism: a placement rejection costs about 0.36 ms and a full kinematic evaluation about 6.1 ms, and repair turns cheap rejections into expensive evaluations (feasible share 0.58 → 0.74). Per run, repair spends about 6.5× the wall's CPU at equal generations. Report CPU seconds as the budget and give wall-clock time once for the hardware. The raw JSON records both (`cpu_time`, `execution_time`). State that repair received the same kind of exact, result-preserving speed-up as the evaluator (`results/penalty_cx08_mut02_r20_g300_fastrepair/REPAIR_OPTIMIZATION.md`), since equal-CPU results depend on how fast each piece of code is.
 
 **4.5 Scaling with machine count (F2).** At equal generations the gain grows from 0.11 s (4 machines) to 0.90 s (8 machines), because placement gets tighter as the cell fills. At equal CPU it stays between 0.06 and 0.15 s and is significant at every count. The penalties fall behind the wall at equal CPU from 6 machines up (−0.11 to −0.37 s): they pay for the full kinematic check on more layouts without ranking better.
 
