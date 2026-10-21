@@ -422,53 +422,104 @@ def repair_placement(
 
     half = np.array([[m.width / 2.0, m.depth / 2.0] for m in placed])
     cos_t, sin_t = np.cos(angles), np.sin(angles)
-
-    pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
     reach = radii[:, None] + radii[None, :] + tolerance
+
+    # The loop works on plain floats: numpy on two-element arrays is mostly
+    # call overhead.  Every operation below is the same IEEE operation, in the
+    # same order, as the array version it replaced, so the output is
+    # bit-identical.  The one exception is the projection onto the axes: numpy's
+    # matmul may fuse multiply-adds, so it stays a numpy matmul on a numpy row.
+    axes_t = axes.T
+    ext_lo, ext_hi = extent_lo.tolist(), extent_hi.tolist()
+    axes_l = axes.tolist()
+    half_l, cos_l, sin_l = half.tolist(), cos_t.tolist(), sin_t.tolist()
+    lower_l, upper_l = lower.tolist(), upper.tolist()
+    reach_l = reach.tolist()
+    base_x, base_y = base.tolist()
+    xs, ys = centres[:, 0].tolist(), centres[:, 1].tolist()
+    keep_out = keep_out_radius + margin
+    pairs = [
+        (i, j, (2 * i, 2 * i + 1, 2 * j, 2 * j + 1))
+        for i in range(n) for j in range(i + 1, n)
+    ]
+
+    def clip() -> None:
+        for i in range(n):
+            xs[i] = min(max(xs[i], lower_l[i][0]), upper_l[i][0])
+            ys[i] = min(max(ys[i], lower_l[i][1]), upper_l[i][1])
+
+    def project_row(i: int) -> List[float]:
+        return (np.array([xs[i], ys[i]]) @ axes_t).tolist()
 
     for _ in range(max_iters):
         moved = False
-        np.clip(centres, lower, upper, out=centres)
+        clip()
 
         for i in range(n):
-            dx, dy = base - centres[i]
-            local_x = cos_t[i] * dx + sin_t[i] * dy
-            local_y = -sin_t[i] * dx + cos_t[i] * dy
-            nearest_x = min(max(local_x, -half[i, 0]), half[i, 0])
-            nearest_y = min(max(local_y, -half[i, 1]), half[i, 1])
-            shortfall = keep_out_radius + margin - math.hypot(
-                local_x - nearest_x, local_y - nearest_y
-            )
+            dx, dy = base_x - xs[i], base_y - ys[i]
+            c, s = cos_l[i], sin_l[i]
+            local_x = c * dx + s * dy
+            local_y = -s * dx + c * dy
+            hw, hd = half_l[i]
+            nearest_x = min(max(local_x, -hw), hw)
+            nearest_y = min(max(local_y, -hd), hd)
+            shortfall = keep_out - math.hypot(local_x - nearest_x, local_y - nearest_y)
             if shortfall > 0.0:
-                away = centres[i] - base
-                norm = math.hypot(away[0], away[1])
+                away_x, away_y = xs[i] - base_x, ys[i] - base_y
+                norm = math.hypot(away_x, away_y)
                 # A machine sitting dead on the column has no outward
                 # direction of its own; any ray will do.
-                direction = away / norm if norm > 1e-12 else np.array([1.0, 0.0])
-                centres[i] += direction * shortfall
+                if norm > 1e-12:
+                    xs[i] += (away_x / norm) * shortfall
+                    ys[i] += (away_y / norm) * shortfall
+                else:
+                    xs[i] += 1.0 * shortfall
+                    ys[i] += 0.0 * shortfall
                 moved = True
 
-        projection = centres @ axes.T                            # (n, 2n)
-        for i, j in pairs:
-            if math.hypot(*(centres[i] - centres[j])) > reach[i, j]:
+        centres[:, 0], centres[:, 1] = xs, ys
+        projection = (centres @ axes_t).tolist()                 # (n, 2n)
+        stale = [False] * n   # moved since its row was projected
+        for i, j, k in pairs:
+            if math.hypot(xs[i] - xs[j], ys[i] - ys[j]) > reach_l[i][j]:
                 continue
-            k = [2 * i, 2 * i + 1, 2 * j, 2 * j + 1]
-            lo_a, hi_a = extent_lo[i, k] + projection[i, k], extent_hi[i, k] + projection[i, k]
-            lo_b, hi_b = extent_lo[j, k] + projection[j, k], extent_hi[j, k] + projection[j, k]
+            for m in (i, j):
+                if stale[m]:
+                    projection[m] = project_row(m)
+                    stale[m] = False
+            pi, pj = projection[i], projection[j]
+            lo_i, hi_i, lo_j, hi_j = ext_lo[i], ext_hi[i], ext_lo[j], ext_hi[j]
 
-            # On each axis, the shorter of the two ways to pull them apart.
-            forward, backward = hi_a + tolerance - lo_b, hi_b + tolerance - lo_a
-            depths = np.minimum(forward, backward)
-            if depths.min() <= 0.0:
-                continue  # this axis already separates them
-            best = int(np.argmin(depths))
-            axis = axes[k[best]] if forward[best] <= backward[best] else -axes[k[best]]
+            # On each axis, the shorter of the two ways to pull them apart;
+            # the first axis with the smallest push wins, as np.argmin does.
+            best = -1
+            best_depth = math.inf
+            best_forward = False
+            separated = False
+            for slot, a in enumerate(k):
+                lo_a, hi_a = lo_i[a] + pi[a], hi_i[a] + pi[a]
+                lo_b, hi_b = lo_j[a] + pj[a], hi_j[a] + pj[a]
+                forward = hi_a + tolerance - lo_b
+                backward = hi_b + tolerance - lo_a
+                depth = min(forward, backward)
+                if depth <= 0.0:
+                    separated = True  # this axis already separates them
+                    break
+                if depth < best_depth:
+                    best, best_depth, best_forward = slot, depth, forward <= backward
+            if separated:
+                continue
 
-            shift = 0.5 * depths[best] * axis
-            centres[i] -= shift
-            centres[j] += shift
-            projection[i] = centres[i] @ axes.T
-            projection[j] = centres[j] @ axes.T
+            ax_x, ax_y = axes_l[k[best]]
+            if not best_forward:
+                ax_x, ax_y = -ax_x, -ax_y
+            half_depth = 0.5 * best_depth
+            shift_x, shift_y = half_depth * ax_x, half_depth * ax_y
+            xs[i] -= shift_x
+            ys[i] -= shift_y
+            xs[j] += shift_x
+            ys[j] += shift_y
+            stale[i] = stale[j] = True
             moved = True
 
         if not moved:
@@ -476,7 +527,7 @@ def repair_placement(
 
     # A final clip, so the last separation pass cannot leave a machine
     # hanging over the cell wall.
-    np.clip(centres, lower, upper, out=centres)
-    for machine, centre in zip(placed, centres):
-        machine.x, machine.y = float(centre[0]), float(centre[1])
+    clip()
+    for machine, x, y in zip(placed, xs, ys):
+        machine.x, machine.y = x, y
     return placed
