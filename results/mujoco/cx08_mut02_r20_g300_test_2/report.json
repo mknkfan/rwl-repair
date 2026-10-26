@@ -1,0 +1,98 @@
+{
+  "results_tree": "cx08_mut02_r20_g300",
+  "instance": "test_2",
+  "run": 13,
+  "cycle_time_planned": 10.8363,
+  "posture": "right/down",
+  "retract": 0.06,
+  "clearance": {
+    "solid_worst_gap_mm": 11.32,
+    "solid_worst_part": "wrist",
+    "solid_worst_machine": "M5",
+    "solid_worst_time_s": 4.37,
+    "sphere_worst_gap_mm": 7.51,
+    "per_part_mm": {
+      "turret": 261.63,
+      "shoulder": 245.41,
+      "upper_arm": 227.13,
+      "elbow": 216.14,
+      "forearm": 23.24,
+      "wrist": 11.32,
+      "flange": 41.07,
+      "palm": 33.12,
+      "finger_a": 34.78,
+      "finger_b": 23.67
+    }
+  },
+  "torque": {
+    "waist": {
+      "peak_Nm": 58.15,
+      "limit_Nm": 97.6,
+      "utilisation": 0.596,
+      "at_s": 5.48
+    },
+    "shoulder": {
+      "peak_Nm": 92.35,
+      "limit_Nm": 186.4,
+      "utilisation": 0.495,
+      "at_s": 4.941
+    },
+    "elbow": {
+      "peak_Nm": 21.65,
+      "limit_Nm": 89.4,
+      "utilisation": 0.242,
+      "at_s": 1.459
+    },
+    "wrist roll": {
+      "peak_Nm": 0.01,
+      "limit_Nm": 24.2,
+      "utilisation": 0.0,
+      "at_s": 10.545
+    },
+    "wrist pitch": {
+      "peak_Nm": 2.76,
+      "limit_Nm": 20.1,
+      "utilisation": 0.137,
+      "at_s": 0.047
+    },
+    "flange roll": {
+      "peak_Nm": 0.0,
+      "limit_Nm": 21.3,
+      "utilisation": 0.0,
+      "at_s": 3.48
+    }
+  },
+  "tracking": {
+    "bandwidth_rad_s": 25.0,
+    "friction_compensation": 1.0,
+    "tip_error_max_mm": 1.006,
+    "tip_error_rms_mm": 0.41,
+    "station_tip_error_mm": [
+      0.055,
+      0.053,
+      0.059,
+      0.064,
+      0.068,
+      0.048
+    ],
+    "joint_error_max_deg": {
+      "waist": 0.0136,
+      "shoulder": 0.0178,
+      "elbow": 0.0197,
+      "wrist roll": 0.0012,
+      "wrist pitch": 0.0345,
+      "flange roll": 0.0
+    },
+    "saturated_fraction": {
+      "waist": 0.0,
+      "shoulder": 0.0,
+      "elbow": 0.0,
+      "wrist roll": 0.0,
+      "wrist pitch": 0.0,
+      "flange roll": 0.0
+    },
+    "collision_steps": 0,
+    "collided_pairs": [],
+    "approach_contact_steps": 7300
+  }
+}

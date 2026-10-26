@@ -1,0 +1,98 @@
+{
+  "results_tree": "cx08_mut02_r20_g300",
+  "instance": "test_9",
+  "run": 6,
+  "cycle_time_planned": 10.9969,
+  "posture": "right/down",
+  "retract": 0.06,
+  "clearance": {
+    "solid_worst_gap_mm": 27.34,
+    "solid_worst_part": "wrist",
+    "solid_worst_machine": "M6",
+    "solid_worst_time_s": 1.14,
+    "sphere_worst_gap_mm": 11.57,
+    "per_part_mm": {
+      "turret": 300.0,
+      "shoulder": 300.0,
+      "upper_arm": 251.81,
+      "elbow": 217.88,
+      "forearm": 41.14,
+      "wrist": 27.34,
+      "flange": 45.35,
+      "palm": 33.88,
+      "finger_a": 32.49,
+      "finger_b": 34.93
+    }
+  },
+  "torque": {
+    "waist": {
+      "peak_Nm": 59.06,
+      "limit_Nm": 97.6,
+      "utilisation": 0.605,
+      "at_s": 4.0
+    },
+    "shoulder": {
+      "peak_Nm": 92.91,
+      "limit_Nm": 186.4,
+      "utilisation": 0.498,
+      "at_s": 5.362
+    },
+    "elbow": {
+      "peak_Nm": 20.39,
+      "limit_Nm": 89.4,
+      "utilisation": 0.228,
+      "at_s": 4.0
+    },
+    "wrist roll": {
+      "peak_Nm": 0.01,
+      "limit_Nm": 24.2,
+      "utilisation": 0.0,
+      "at_s": 9.054
+    },
+    "wrist pitch": {
+      "peak_Nm": 2.04,
+      "limit_Nm": 20.1,
+      "utilisation": 0.101,
+      "at_s": 9.054
+    },
+    "flange roll": {
+      "peak_Nm": 0.0,
+      "limit_Nm": 21.3,
+      "utilisation": 0.0,
+      "at_s": 4.037
+    }
+  },
+  "tracking": {
+    "bandwidth_rad_s": 25.0,
+    "friction_compensation": 1.0,
+    "tip_error_max_mm": 0.916,
+    "tip_error_rms_mm": 0.38,
+    "station_tip_error_mm": [
+      0.052,
+      0.062,
+      0.059,
+      0.061,
+      0.046,
+      0.041
+    ],
+    "joint_error_max_deg": {
+      "waist": 0.0139,
+      "shoulder": 0.0154,
+      "elbow": 0.0202,
+      "wrist roll": 0.0009,
+      "wrist pitch": 0.0126,
+      "flange roll": 0.0
+    },
+    "saturated_fraction": {
+      "waist": 0.0,
+      "shoulder": 0.0,
+      "elbow": 0.0,
+      "wrist roll": 0.0,
+      "wrist pitch": 0.0,
+      "flange roll": 0.0
+    },
+    "collision_steps": 0,
+    "collided_pairs": [],
+    "approach_contact_steps": 7693
+  }
+}
