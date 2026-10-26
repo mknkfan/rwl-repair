@@ -1,6 +1,6 @@
 """One table across machine counts for the four-arm penalty A/B sweep.
 
-    python -m experiments.summarize_penalty_machines --sweep-dir results/penalty_cx08_mut02_r20_g300_machines
+    python -m experiments.summarize_penalty_machines --sweep-dir results/cx08_mut02_r20_g300_machines
 
 ``run_penalty_ab --machines N`` writes one study per machine count, each with
 its own report and ``summary.json``.  The question the sweep asks -- does the

@@ -14,7 +14,7 @@ MuJoCo's ``simulate`` app, or ``python -m mujoco.viewer --mjcf scene.xml``),
 ``report.md`` / ``report.json``, ``torques.png``, ``tracking.png`` and
 ``cycle.gif``.
 
-    python -m experiments.run_mujoco                       # best run of test_1 in results/retract
+    python -m experiments.run_mujoco                       # best run of test_1 in results/cx08_mut02_r20_g300
     python -m experiments.run_mujoco --instance test_3 --view
     python -m experiments.run_mujoco --results retract_ab --instance test_2 --run 4
 """
@@ -145,7 +145,7 @@ def view(cell, q_path: np.ndarray, dt: float) -> None:
 
 def main(argv: Optional[List[str]] = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--results", default="retract", help="results tree under results/")
+    parser.add_argument("--results", default="cx08_mut02_r20_g300", help="results tree under results/")
     parser.add_argument("--instance", default="test_1")
     parser.add_argument("--run", type=int, default=None, help="run index; default the fastest")
     parser.add_argument("--dt", type=float, default=0.001, help="physics and control step [s]")

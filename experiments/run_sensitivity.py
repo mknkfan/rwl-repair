@@ -452,8 +452,11 @@ def stage_pathcheck(args) -> None:
             c["source"] = label
         rows += checked
         failed = [c for c in checked if not c["feasible_dense"]]
+        # The stored chromosome is rounded to 6 decimals, which alone moves the
+        # cycle time by a few microseconds; a posture change moves it by far
+        # more than a millisecond.
         changed = [c for c in checked if c["feasible_dense"]
-                   and abs(c["cycle_time_dense"] - c["cycle_time_12"]) > 1e-6]
+                   and abs(c["cycle_time_dense"] - c["cycle_time_12"]) > 1e-3]
         gaps = [c["min_gap_dense"] for c in checked if c["min_gap_dense"] is not None]
         table.append(
             f"| {label} | {len(checked)} | {len(failed)} | {len(changed)} "

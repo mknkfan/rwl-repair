@@ -14,7 +14,8 @@ Drawn uniformly, only about 5 % of layouts place without overlap and well
 under 1 % clear the robot's constraints too, so a random population of 200
 would hold essentially no finite fitness and selection would have nothing to
 rank.  The initial population is therefore rejection-sampled for *placement*
-only: draw until the boxes fit, up to a cap, then keep the last draw.
+only: draw until the boxes fit, up to a cap; a member that never fits is
+left as an unchecked uniform draw.
 
 That buys a foothold in the geometrically legal region and nothing more --
 reachability and manipulability the search still has to find for itself.  The
@@ -46,8 +47,8 @@ class GAConfig:
     label: str = "GA (no LS)"
     population_size: int = 200
     generations: int = 300
-    crossover_rate: float = 0.9
-    mutation_rate: float = 0.1
+    crossover_rate: float = 0.8
+    mutation_rate: float = 0.2
     elitism_rate: float = 0.1
     tournament_k: int = 3
     #: Gaussian jitter width for a position gene, as a fraction of its range.
