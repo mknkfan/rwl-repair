@@ -77,7 +77,7 @@ add_source_dirs()
 from evaluator import CycleTimeEvaluator  # noqa: E402
 from ga import ConfigurableGA, GAConfig, make_initial_population  # noqa: E402
 from penalty import INFEASIBLE_BASE, CountingEvaluator, PenaltyEvaluator  # noqa: E402
-from problems import build_instances, describe  # noqa: E402
+from problems import DEFAULT_N_MACHINES, build_instances, describe  # noqa: E402
 from run_repair_ab import (  # noqa: E402
     bootstrap_ci, collect_records, run_seed_for, sign_flip_test,
     wilcoxon_signed_rank,
@@ -152,6 +152,7 @@ class Job:
     check_arm: bool = True
     arm_clearance: float = 0.005
     retract: Optional[float] = 0.06
+    n_machines: int = DEFAULT_N_MACHINES
 
 
 def run_json_path(output_dir: str, arm: str, instance_name: str, run: int) -> str:
@@ -177,7 +178,7 @@ def build_evaluator(job: Job, instance):
 
 def execute(job: Job) -> Dict:
     """Run one GA and write its JSON.  Executed in a worker process."""
-    instance = build_instances(job.split)[job.instance_index]
+    instance = build_instances(job.split, job.n_machines)[job.instance_index]
     seed = run_seed_for(job.instance_index, job.run)
 
     evaluator = build_evaluator(job, instance)
@@ -704,7 +705,7 @@ def per_instance(by_key) -> List[Dict]:
 
 
 def stage_run(args) -> None:
-    instances = build_instances(args.split)
+    instances = build_instances(args.split, args.machines)
     if args.instances:
         instances = instances[: args.instances]
     config_kwargs = dict(
@@ -725,10 +726,11 @@ def stage_run(args) -> None:
                     overlap_count_weight=count_weight,
                     sigma_min_threshold=args.sigma_min, dwell=args.dwell,
                     output_dir=args.output, retract=args.retract,
+                    n_machines=args.machines,
                 ))
 
     print(f"{len(jobs)} runs: {len(ARMS)} arms x {len(instances)} instances "
-          f"x {args.runs} seeds, {args.generations} generations, "
+          f"x {args.runs} seeds, {args.machines} machines, {args.generations} generations, "
           f"{args.workers} workers")
     started = time.perf_counter()
     run_grid(jobs, args.workers, args.resume)
@@ -744,6 +746,7 @@ def stage_run(args) -> None:
         "infeasible_base": INFEASIBLE_BASE,
         "config": GAConfig(**config_kwargs).to_dict(),
         "runs": args.runs,
+        "n_machines": args.machines,
         "retract": args.retract,
         "sigma_min_threshold": args.sigma_min,
         "dwell": args.dwell,
@@ -814,6 +817,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--only", choices=STAGES, action="append", dest="stages")
     parser.add_argument("--split", default="test")
+    parser.add_argument("--machines", type=int, default=DEFAULT_N_MACHINES,
+                        help="machines per cell (default %(default)s)")
     parser.add_argument("--instances", type=int, default=0,
                         help="use only the first N instances of the split (0 = all)")
     parser.add_argument("--runs", type=int, default=5)

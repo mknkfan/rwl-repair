@@ -1,0 +1,98 @@
+{
+  "results_tree": "cx08_mut02_r20_g300",
+  "instance": "test_3",
+  "run": 12,
+  "cycle_time_planned": 9.7164,
+  "posture": "right/down",
+  "retract": 0.06,
+  "clearance": {
+    "solid_worst_gap_mm": 15.6,
+    "solid_worst_part": "forearm",
+    "solid_worst_machine": "M6",
+    "solid_worst_time_s": 2.39,
+    "sphere_worst_gap_mm": 11.15,
+    "per_part_mm": {
+      "turret": 273.02,
+      "shoulder": 286.28,
+      "upper_arm": 265.1,
+      "elbow": 264.4,
+      "forearm": 15.6,
+      "wrist": 17.64,
+      "flange": 43.43,
+      "palm": 52.32,
+      "finger_a": 34.51,
+      "finger_b": 36.68
+    }
+  },
+  "torque": {
+    "waist": {
+      "peak_Nm": 57.94,
+      "limit_Nm": 97.6,
+      "utilisation": 0.594,
+      "at_s": 4.812
+    },
+    "shoulder": {
+      "peak_Nm": 90.45,
+      "limit_Nm": 186.4,
+      "utilisation": 0.485,
+      "at_s": 2.958
+    },
+    "elbow": {
+      "peak_Nm": 20.12,
+      "limit_Nm": 89.4,
+      "utilisation": 0.225,
+      "at_s": 0.269
+    },
+    "wrist roll": {
+      "peak_Nm": 0.01,
+      "limit_Nm": 24.2,
+      "utilisation": 0.0,
+      "at_s": 0.27
+    },
+    "wrist pitch": {
+      "peak_Nm": 2.05,
+      "limit_Nm": 20.1,
+      "utilisation": 0.102,
+      "at_s": 8.264
+    },
+    "flange roll": {
+      "peak_Nm": 0.0,
+      "limit_Nm": 21.3,
+      "utilisation": 0.0,
+      "at_s": 4.994
+    }
+  },
+  "tracking": {
+    "bandwidth_rad_s": 25.0,
+    "friction_compensation": 1.0,
+    "tip_error_max_mm": 0.88,
+    "tip_error_rms_mm": 0.341,
+    "station_tip_error_mm": [
+      0.059,
+      0.06,
+      0.059,
+      0.046,
+      0.049,
+      0.055
+    ],
+    "joint_error_max_deg": {
+      "waist": 0.013,
+      "shoulder": 0.0172,
+      "elbow": 0.0197,
+      "wrist roll": 0.0008,
+      "wrist pitch": 0.0342,
+      "flange roll": 0.0
+    },
+    "saturated_fraction": {
+      "waist": 0.0,
+      "shoulder": 0.0,
+      "elbow": 0.0,
+      "wrist roll": 0.0,
+      "wrist pitch": 0.0,
+      "flange roll": 0.0
+    },
+    "collision_steps": 0,
+    "collided_pairs": [],
+    "approach_contact_steps": 8181
+  }
+}

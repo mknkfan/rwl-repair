@@ -276,7 +276,7 @@ def build_mjcf(
         scene.append(
             f'    <geom name="{machine.name}" class="machine" type="box" '
             f'pos="{_fmt((machine.x, machine.y, machine.height / 2.0))}" '
-            f'euler="0 0 {math.radians(machine.rotation):.6g}" '
+            f'euler="0 0 {machine.rotation:.6g}" '
             f'size="{_fmt((machine.width / 2.0, machine.depth / 2.0, machine.height / 2.0))}"/>'
         )
     if ports is not None:
