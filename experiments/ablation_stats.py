@@ -37,7 +37,7 @@ add_source_dirs()
 from holm import holm  # noqa: E402
 from run_repair_ab import wilcoxon_signed_rank  # noqa: E402
 
-DEFAULT_RESULTS_DIR = results_dir("ga_ablation_retract")
+DEFAULT_RESULTS_DIR = results_dir("ga_ablation")
 
 Cell = Tuple[float, float]
 

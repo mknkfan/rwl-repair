@@ -45,7 +45,7 @@ from problems import build_instances  # noqa: E402
 
 DEFAULT_OUT = os.path.join(results_dir("model"), "repair_example.png")
 DEFAULT_PARENT = os.path.join(
-    results_dir("penalty_cx08_mut02_r20_g300"), "raw", "repair_test_1_run0.json"
+    results_dir("cx08_mut02_r20_g300"), "raw", "repair_test_1_run0.json"
 )
 MUTATION_SIGMA = 0.10
 MARGIN = 0.005  # GAConfig.repair_margin

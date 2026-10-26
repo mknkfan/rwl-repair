@@ -506,8 +506,8 @@ def build_parser() -> argparse.ArgumentParser:
     ga = parser.add_argument_group("GA operators (static study defaults)")
     ga.add_argument("--population-size", type=_positive_int("--population-size"), default=200)
     ga.add_argument("--generations", type=_positive_int("--generations"), default=300)
-    ga.add_argument("--crossover-rate", type=float, default=0.9)
-    ga.add_argument("--mutation-rate", type=float, default=0.1)
+    ga.add_argument("--crossover-rate", type=float, default=0.8)
+    ga.add_argument("--mutation-rate", type=float, default=0.2)
     ga.add_argument("--elitism-rate", type=float, default=0.1)
     ga.add_argument("--tournament-k", type=_positive_int("--tournament-k"), default=3)
     ga.add_argument("--repair", action="store_true",

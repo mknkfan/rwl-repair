@@ -723,8 +723,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--population-size", type=_positive_int("--population-size"),
                         default=200)
     parser.add_argument("--generations", type=_positive_int("--generations"), default=300)
-    parser.add_argument("--crossover-rate", type=float, default=0.9)
-    parser.add_argument("--mutation-rate", type=float, default=0.1)
+    parser.add_argument("--crossover-rate", type=float, default=0.8)
+    parser.add_argument("--mutation-rate", type=float, default=0.2)
     parser.add_argument("--elitism-rate", type=float, default=0.1)
     parser.add_argument("--mutation-sigma", type=float, default=0.10)
     parser.add_argument("--repair-margin", type=float, default=0.005,
